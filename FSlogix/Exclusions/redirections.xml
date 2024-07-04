@@ -1,0 +1,229 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FrxProfileFolderRedirection ExcludeCommonFolders="0">
+    <Excludes>
+        <!-- Adobe Exclusions -->
+        <Exclude>AppData\Local\Adobe</Exclude>
+        <!-- -->
+
+        <!-- Microsoft Windows Exclusions -->
+        <Exclude>AppData\Local\CEF</Exclude>
+        <Exclude>AppData\Local\ConnectedDevicesPlatform</Exclude>
+        <Exclude>AppData\Local\CrashDumps</Exclude>
+        <Exclude>AppData\Local\D3DSCache</Exclude>
+        <Exclude>AppData\Local\Deployment</Exclude>
+        <Exclude>AppData\Local\Downloaded Installations</Exclude>        <!-- May break per-user installed apps -->
+        <Exclude>AppData\Local\GroupPolicy</Exclude>
+        <Exclude>AppData\Local\IsolatedStorage</Exclude>
+        <Exclude>AppData\Local\Microsoft Help</Exclude>
+        <Exclude>AppData\Local\Package Cache</Exclude>
+        <!-- <Exclude>AppData\Local\Packages</Exclude> -->        <!-- Don't exclude this if you use AppX or MSIX Packages like the new Teams v2 -->
+        <Exclude>AppData\Local\VirtualStore</Exclude>
+        <Exclude>AppData\Local\Microsoft\Notifications</Exclude>
+        <Exclude>AppData\Local\Microsoft\Windows\1031</Exclude>
+        <Exclude>AppData\Local\Microsoft\Windows\AppCache</Exclude>
+        <Exclude>AppData\Local\Microsoft\Windows\Application Shortcuts</Exclude>
+        <Exclude>AppData\Local\Microsoft\Windows\DNTException</Exclude>
+        <Exclude>AppData\Local\Microsoft\Windows\Explorer</Exclude>
+        <Exclude>AppData\Local\Microsoft\Windows\GameExplorer</Exclude>
+        <Exclude>AppData\Local\Microsoft\Windows\INetCache</Exclude>
+        <Exclude>AppData\Local\Microsoft\Internet Explorer\DOMStore</Exclude>
+        <Exclude>AppData\local\Microsoft\Windows\IEDownloadHistory</Exclude>
+        <Exclude>AppData\Local\Microsoft\Windows\IECompatCache</Exclude>
+        <Exclude>AppData\Local\Microsoft\Windows\iecompatuaCache</Exclude>
+        <Exclude>AppData\Local\Microsoft\Windows\LocalTiles</Exclude>
+        <Exclude>AppData\Local\Microsoft\Windows\Mail</Exclude>
+        <Exclude>AppData\Local\Microsoft\Windows\Notifications</Exclude>
+        <Exclude>AppData\Local\Microsoft\Windows\PRICache</Exclude>
+        <Exclude>AppData\Local\Microsoft\Windows\PrivacIE</Exclude>
+        <Exclude>AppData\Local\Microsoft\Windows\RoamingTiles</Exclude>
+        <Exclude>AppData\Local\Microsoft\Windows\SchCache</Exclude>
+        <Exclude>AppData\Local\Microsoft\Windows\WebCache.old</Exclude>
+        <Exclude>AppData\Local\Microsoft\Windows\WebCache</Exclude>
+        <Exclude>AppData\Local\Microsoft\TokenBroker\Cache</Exclude>
+        <Exclude>AppData\Microsoft\Windows\Start Menu</Exclude>
+        <Exclude>AppData\LocalLow</Exclude>
+        <!-- -->
+
+        <!-- Must be excluded, to view correct profile photo -->
+        <Exclude>AppData\Local\Microsoft\Windows\ActionCenterCache</Exclude>
+        <!-- -->
+
+        <!-- MS Teams (Classic) Exclusions -->
+        <Exclude>AppData\Local\SquirrelTemp</Exclude>
+        <Exclude>AppData\Local\Microsoft\Teams\Current\Locales</Exclude>
+        <Exclude>AppData\Local\Microsoft\Teams\Packages\SquirrelTemp</Exclude>
+        <Exclude>AppData\Local\Microsoft\Teams\current\resources\locales</Exclude>
+        <Exclude>AppData\Local\Microsoft\Teams\Current\Locales</Exclude>
+        <Exclude>AppData\Roaming\Microsoft\Teams\Service Worker\CacheStorage</Exclude>
+        <Exclude>AppData\Roaming\Microsoft\Teams\Application Cache</Exclude>
+        <Exclude>AppData\Roaming\Microsoft\Teams\Cache</Exclude>
+        <Exclude>AppData\Roaming\Microsoft Teams\Logs</Exclude>
+        <Exclude>AppData\Roaming\Microsoft\Teams\media-stack</Exclude>
+        <Exclude>AppData\Roaming\Microsoft\Teams\Service Worker\ScriptCache</Exclude>
+        <Exclude>AppData\Roaming\Microsoft\Teams\blob_storage</Exclude>
+        <Exclude>AppData\Roaming\Microsoft\Teams\databases</Exclude>
+        <Exclude>AppData\Roaming\Microsoft\Teams\Indexeddb</Exclude>
+        <Exclude>AppData\Roaming\Microsoft\Teams\Local Storage</Exclude>
+        <Exclude>AppData\Roaming\Microsoft\Teams\tmp</Exclude>
+        <!-- -->
+
+        <!-- MS Teams v2 Exclusions -->
+        <!-- Source: https://learn.microsoft.com/en-us/microsoftteams/new-teams-vdi-requirements-deploy#review-tradeoff-considerations-requiring-evaluation-and-testing-for-these-environments -->
+        <Exclude>AppData\Local\Packages\MSTeams_8wekyb3d8bbwe\LocalCache\Microsoft\MSTeams\Logs</Exclude>
+        <Exclude>AppData\Local\Packages\MSTeams_8wekyb3d8bbwe\LocalCache\Microsoft\MSTeams\PerfLog</Exclude>
+        <Exclude>AppData\Local\Packages\MSTeams_8wekyb3d8bbwe\LocalCache\Microsoft\MSTeams\EBWebView\WV2Profile_tfw\WebStorage</Exclude>
+        <Exclude>AppData\Local\Packages\MSTeams_8wekyb3d8bbwe\LocalCache\Microsoft\MSTeams\EBWebView\WV2Profile_tfw\GPUCache</Exclude>
+        <!-- MS Teams v2 optional exclusions - Could Reduce performance, needs to download and load scripts on every app launch -->
+        <!-- <Exclude>AppData\Local\Packages\MSTeams_8wekyb3d8bbwe\LocalCache\Microsoft\MSTeams\EBWebView\WV2Profile_tfw\Service Worker\CacheStorage</Exclude> -->
+        <!-- <Exclude>AppData\Local\Packages\MSTeams_8wekyb3d8bbwe\LocalCache\Microsoft\MSTeams\EBWebView\WV2Profile_tfw\CodeCache</Exclude> -->
+        <!-- MS Teams v2 optional exclusions - Could Reduce performance, for example, profile pictures in Teams are mostly cached in this storage by the browser. These will need to be downloaded again. -->
+        <!-- <Exclude>AppData\Local\Packages\MSTeams_8wekyb3d8bbwe\LocalCache\Microsoft\MSTeams\EBWebView\WV2Profile_tfw\Cache</Exclude> -->
+        <!-- -->
+        <!-- StartMenu Exclusions - Sometimes AppX/MSIX/AppV shortcuts won't be available after adding the apps -->
+        <Exclude>AppData\Local\Packages\Microsoft.Windows.StartMenuExperienceHost_cw5n1h2txyewy\TempState</Exclude>
+        <!-- Microsoft Edge Chromium Exclusions -->
+        <!-- Source: https://support.citrix.com/article/CTX336809/citrix-profile-management-user-configuration-for-microsoft-edge -->
+        <!-- Source: https://www.avanite.com/blog/roaming-edge-chromium -->
+        <Exclude>AppData\Local\Microsoft\Edge\User Data\Ad Blocking</Exclude>
+        <Exclude>AppData\Local\Microsoft\Edge\User Data\BrowserMetrics</Exclude>
+        <Exclude>AppData\Local\Microsoft\Edge\User Data\CertificateRevocation</Exclude>
+        <Exclude>AppData\Local\Microsoft\Edge\User Data\CertificateTransparency</Exclude>
+        <Exclude>AppData\Local\Microsoft\Edge\User Data\Crashpad</Exclude>
+        <Exclude>AppData\Local\Microsoft\Edge\User Data\FileTypePolicies</Exclude>
+        <Exclude>AppData\Local\Microsoft\Edge\User Data\InterventionPolicyDatabase</Exclude>
+        <Exclude>AppData\Local\Microsoft\Edge\User Data\MEIPreload</Exclude>
+        <Exclude>AppData\Local\Microsoft\Edge\User Data\PepperFlash</Exclude>
+        <Exclude>AppData\Local\Microsoft\Edge\User Data\pnacl</Exclude>
+        <Exclude>AppData\Local\Microsoft\Edge\User Data\Safe Browsing</Exclude>
+        <Exclude>AppData\Local\Microsoft\Edge\User Data\ShaderCache</Exclude>
+        <Exclude>AppData\Local\Microsoft\Edge\User Data\SmartScreen</Exclude>
+        <Exclude>AppData\Local\Microsoft\Edge\User Data\SSLErrorAssistant</Exclude>
+        <Exclude>AppData\Local\Microsoft\Edge\User Data\Subresource Filter</Exclude>
+        <Exclude>AppData\Local\Microsoft\Edge\User Data\Trust Protection Lists</Exclude>
+        <Exclude>AppData\Local\Microsoft\Edge\User Data\WidevineCdm</Exclude>
+        <!-- Microsoft Edge Chromium Exclusions - Default Profile -->
+        <Exclude>AppData\Local\Microsoft\Edge\User Data\Default\blob_storage</Exclude>
+        <Exclude>AppData\Local\Microsoft\Edge\User Data\Default\BudgetDatabase</Exclude>
+        <Exclude>AppData\Local\Microsoft\Edge\User Data\Default\Cache</Exclude>
+        <Exclude>AppData\Local\Microsoft\Edge\User Data\Default\Code Cache</Exclude>
+        <Exclude>AppData\Local\Microsoft\Edge\User Data\Default\Media Cache</Exclude>
+        <Exclude>AppData\Local\Microsoft\Edge\User Data\Default\File System</Exclude>
+        <Exclude>AppData\Local\Microsoft\Edge\User Data\Default\GPUCache</Exclude>
+        <Exclude>AppData\Local\Microsoft\Edge\User Data\Default\IndexedDB</Exclude>
+        <Exclude>AppData\Local\Microsoft\Edge\User Data\Default\JumpListIconsRecentClosed</Exclude>
+        <Exclude>AppData\Local\Microsoft\Edge\User Data\Default\JumpListIconsMostVisited</Exclude>
+        <Exclude>AppData\Local\Microsoft\Edge\User Data\Default\JumpListIconsTopSites</Exclude>
+        <Exclude>AppData\Local\Microsoft\Edge\User Data\Default\Local Storage</Exclude>
+        <Exclude>AppData\Local\Microsoft\Edge\User Data\Default\Storage</Exclude>
+        <Exclude>AppData\Local\Microsoft\Edge\User Data\Default\Service Worker</Exclude>
+        <Exclude>AppData\Local\Microsoft\Edge\User Data\Default\Web Applications</Exclude>
+        <!-- Microsoft Edge Chromium Exclusions - (Extra) Profile 1 -->
+        <!-- For each extra profile, take the profile 1 block and rename to profile 2, 3 and so on -->
+        <Exclude>AppData\Local\Microsoft\Edge\User Data\Profile 1\blob_storage</Exclude>
+        <Exclude>AppData\Local\Microsoft\Edge\User Data\Profile 1\BudgetDatabase</Exclude>
+        <Exclude>AppData\Local\Microsoft\Edge\User Data\Profile 1\Cache</Exclude>
+        <Exclude>AppData\Local\Microsoft\Edge\User Data\Profile 1\Code Cache</Exclude>
+        <Exclude>AppData\Local\Microsoft\Edge\User Data\Profile 1\Media Cache</Exclude>
+        <Exclude>AppData\Local\Microsoft\Edge\User Data\Profile 1\File System</Exclude>
+        <Exclude>AppData\Local\Microsoft\Edge\User Data\Profile 1\GPUCache</Exclude>
+        <Exclude>AppData\Local\Microsoft\Edge\User Data\Profile 1\IndexedDB</Exclude>
+        <Exclude>AppData\Local\Microsoft\Edge\User Data\Profile 1\JumpListIconsRecentClosed</Exclude>
+        <Exclude>AppData\Local\Microsoft\Edge\User Data\Profile 1\JumpListIconsMostVisited</Exclude>
+        <Exclude>AppData\Local\Microsoft\Edge\User Data\Profile 1\JumpListIconsTopSites</Exclude>
+        <Exclude>AppData\Local\Microsoft\Edge\User Data\Profile 1\Local Storage</Exclude>
+        <Exclude>AppData\Local\Microsoft\Edge\User Data\Profile 1\Storage</Exclude>
+        <Exclude>AppData\Local\Microsoft\Edge\User Data\Profile 1\Service Worker</Exclude>
+        <Exclude>AppData\Local\Microsoft\Edge\User Data\Profile 1\Web Applications</Exclude>
+        <!-- -->
+
+        <!-- Microsoft Office Exclusions -->
+        <Exclude>AppData\Local\Microsoft\OneNote\16.0\Backup</Exclude>
+        <Exclude>AppData\Local\Microsoft\OneNote\16.0\OneNoteOfflineCache_Files</Exclude>
+        <Exclude>AppData\Local\Microsoft\OneNote\16.0\cache</Exclude>
+        <Exclude>AppData\Roaming\Microsoft\Document Building Blocks</Exclude>
+        <Exclude>AppData\Roaming\Microsoft\Templates\LiveContent</Exclude>
+        <!-- <Exclude>AppData\Local\Apps</Exclude> -->        <!-- Office add-ins and other apps. May impact performance if excluded -->
+        <!-- -->
+
+        <!-- Google Chrome Exclusions -->
+        <Exclude>AppData\Local\Google\Chrome\User Data\BrowserMetrics</Exclude>
+        <Exclude>AppData\Local\Google\Chrome\User Data\CertificateRevocation</Exclude>
+        <Exclude>AppData\Local\Google\Chrome\User Data\CertificateTransparency</Exclude>
+        <Exclude>AppData\Local\Google\Chrome\User Data\Crashpad</Exclude>
+        <Exclude>AppData\Local\Google\Chrome\User Data\FileTypePolicies</Exclude>
+        <Exclude>AppData\Local\Google\Chrome\User Data\InterventionPolicyDatabase</Exclude>
+        <Exclude>AppData\Local\Google\Chrome\User Data\MEIPreload</Exclude>
+        <Exclude>AppData\Local\Google\Chrome\User Data\PepperFlash</Exclude>
+        <Exclude>AppData\Local\Google\Chrome\User Data\pnacl</Exclude>
+        <Exclude>AppData\Local\Google\Chrome\User Data\Safe Browsing</Exclude>
+        <Exclude>AppData\Local\Google\Chrome\User Data\ShaderCache</Exclude>
+        <Exclude>AppData\Local\Google\Chrome\User Data\SSLErrorAssistant</Exclude>
+        <Exclude>AppData\Local\Google\Chrome\User Data\Subresource Filter</Exclude>
+        <Exclude>AppData\Local\Google\Chrome\User Data\SwReporter</Exclude>
+        <Exclude>AppData\Local\Google\Chrome\User Data\Crowd Deny</Exclude>
+        <Exclude>AppData\Local\Google\Chrome\User Data\OriginTrials</Exclude>
+        <Exclude>AppData\Local\Google\Chrome\User Data\RecoveryImproved</Exclude>
+        <Exclude>AppData\Local\Google\Chrome\User Data\SafetyTips</Exclude>
+        <Exclude>AppData\Local\Google\Chrome\User Data\SwReporter</Exclude>
+        <Exclude>AppData\Local\Google\Chrome\User Data\ThirdPartyModuleList64</Exclude>
+        <Exclude>AppData\Local\Google\Chrome\User Data\TLSDeprecationConfig</Exclude>
+        <Exclude>AppData\Local\Google\Chrome\User Data\WidevineCdm</Exclude>
+        <!-- Google Chrome Exclusions - Default Profile -->
+        <Exclude>AppData\Local\Google\Chrome\User Data\Default\blob_storage</Exclude>
+        <Exclude>AppData\Local\Google\Chrome\User Data\Default\BudgetDatabase</Exclude>
+        <Exclude>AppData\Local\Google\Chrome\User Data\Default\Cache</Exclude>
+        <Exclude>AppData\Local\Google\Chrome\User Data\Default\Code Cache</Exclude>
+        <Exclude>AppData\Local\Google\Chrome\User Data\Default\Media Cache</Exclude>
+        <Exclude>AppData\Local\Google\Chrome\User Data\Default\File System</Exclude>
+        <Exclude>AppData\Local\Google\Chrome\User Data\Default\GPUCache</Exclude>
+        <Exclude>AppData\Local\Google\Chrome\User Data\Default\IndexedDB</Exclude>
+        <Exclude>AppData\Local\Google\Chrome\User Data\Default\JumpListIconsRecentClosed</Exclude>
+        <Exclude>AppData\Local\Google\Chrome\User Data\Default\JumpListIconsMostVisited</Exclude>
+        <Exclude>AppData\Local\Google\Chrome\User Data\Default\JumpListIconsTopSites</Exclude>
+        <Exclude>AppData\Local\Google\Chrome\User Data\Default\Local Storage</Exclude>
+        <Exclude>AppData\Local\Google\Chrome\User Data\Default\Storage</Exclude>
+        <Exclude>AppData\Local\Google\Chrome\User Data\Default\Cached Theme Images</Exclude>
+        <Exclude>AppData\Local\Google\Chrome\User Data\Default\Service Worker</Exclude>
+        <Exclude>AppData\Local\Google\Chrome\User Data\Default\Web Applications</Exclude>
+        <!-- Google Chrome Exclusions - (Extra) Profile 1 -->
+        <!-- For each extra profile, take the profile 1 block and rename to profile 2, 3 and so on -->
+        <Exclude>AppData\Local\Google\Chrome\User Data\Profile 1\blob_storage</Exclude>
+        <Exclude>AppData\Local\Google\Chrome\User Data\Profile 1\BudgetDatabase</Exclude>
+        <Exclude>AppData\Local\Google\Chrome\User Data\Profile 1\Cache</Exclude>
+        <Exclude>AppData\Local\Google\Chrome\User Data\Profile 1\Code Cache</Exclude>
+        <Exclude>AppData\Local\Google\Chrome\User Data\Profile 1\Media Cache</Exclude>
+        <Exclude>AppData\Local\Google\Chrome\User Data\Profile 1\File System</Exclude>
+        <Exclude>AppData\Local\Google\Chrome\User Data\Profile 1\GPUCache</Exclude>
+        <Exclude>AppData\Local\Google\Chrome\User Data\Profile 1\IndexedDB</Exclude>
+        <Exclude>AppData\Local\Google\Chrome\User Data\Profile 1\JumpListIconsRecentClosed</Exclude>
+        <Exclude>AppData\Local\Google\Chrome\User Data\Profile 1\JumpListIconsMostVisited</Exclude>
+        <Exclude>AppData\Local\Google\Chrome\User Data\Profile 1\JumpListIconsTopSites</Exclude>
+        <Exclude>AppData\Local\Google\Chrome\User Data\Profile 1\Local Storage</Exclude>
+        <Exclude>AppData\Local\Google\Chrome\User Data\Profile 1\Storage</Exclude>
+        <Exclude>AppData\Local\Google\Chrome\User Data\Profile 1\Cached Theme Images</Exclude>
+        <Exclude>AppData\Local\Google\Chrome\User Data\Profile 1\Service Worker</Exclude>
+        <Exclude>AppData\Local\Google\Chrome\User Data\Profile 1\Web Applications</Exclude>
+        <!-- -->
+
+        <!--Firefox-->
+        <Exclude>AppData\Local\Mozilla\Firefox</Exclude>
+        <!-- -->
+
+        <!-- Oracle Java Exclusions -->
+        <Exclude>AppData\Local\Sun\Java\Deployment\cache</Exclude>
+        <Exclude>AppData\Local\Sun\Java\Deployment\log</Exclude>
+        <Exclude>AppData\Local\Sun\Java\Deployment\tmp</Exclude>
+        <Exclude>AppData\Roaming\Sun\Java\Deployment\cache</Exclude>
+        <Exclude>AppData\Roaming\Sun\Java\Deployment\tmp</Exclude>
+        <!-- -->
+
+        <!-- Citrix Receiver/WorkspaceApp Exclusions -->
+        <Exclude>AppData\Roaming\ICAClient\Cache</Exclude>
+        <!-- -->
+    </Excludes>
+    <Includes>
+        <!-- Oracle Java Inclusions -->
+        <Include>AppData\LocalLow\Sun\Java\Deployment\security</Include>
+    </Includes>
+</FrxProfileFolderRedirection>
+
