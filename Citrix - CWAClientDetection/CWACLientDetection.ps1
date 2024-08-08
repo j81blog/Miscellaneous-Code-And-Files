@@ -26,12 +26,21 @@
 .PARAMETER MessageTitle
     Specifies the title of the message.
 
+.PARAMETER RunLocal
+    Specifies whether the script should run locally. By default, it runs remotely.
+
+.PARAMETER LogoffOnEOL
+    Specifies whether to log off the user when the end-of-life message is displayed.
+
+.PARAMETER LogoffOnCVE
+    Specifies whether to log off the user when the CVE message is displayed.
+
 .PARAMETER Test
     Specifies whether the script should run in test mode.
 
 .EXAMPLE
-    .\CWACLientDetection.ps1 -EnableLogging -LoggingPath "C:\Logs" -MessageLogo "C:\Logo.png" -MessageTextEOL "End of life message" -MessageTextCVE "CVE message" -MessageTitle "Title" -Test
-    Runs the script with the specified parameters in test mode.
+    .\CWACLientDetection.ps1 -EnableLogging -LoggingPath "C:\Logs" -MessageLogo "C:\Logo.png" -MessageTextEOL "End of life message" -MessageTextCVE "CVE message" -MessageTitle "Title" -RunLocal -LogoffOnEOL -LogoffOnCVE -Test
+    Runs the script with the specified parameters in test mode, running locally and logging off the user on EOL and CVE messages.
 
 .EXAMPLE
     .\CWACLientDetection.ps1 -JSONFilename "C:\Params.json"
@@ -41,7 +50,7 @@
     File Name      : CWACLientDetection.ps1
     Author         : John Billekens Consultancy
     Prerequisite   : PowerShell V2.0
-    Version        : 1.1
+    Version        : 1.2
     Copyright      : Copyright (c) 2024 John Billekens Consultancy
 
 #>
@@ -836,8 +845,8 @@ if ($Test -eq $true) {
 # SIG # Begin signature block
 # MIIndQYJKoZIhvcNAQcCoIInZjCCJ2ICAQExDzANBglghkgBZQMEAgEFADB5Bgor
 # BgEEAYI3AgEEoGswaTA0BgorBgEEAYI3AgEeMCYCAwEAAAQQH8w7YFlLCE63JNLG
-# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCBrNAPpl7ybpO2g
-# kY+UfGgjd7JTJEBSyNV70X+Mkd8CO6CCICkwggXJMIIEsaADAgECAhAbtY8lKt8j
+# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCBEBBmjdoYWeyO1
+# hA1XcB53rgb61ZFFl8vGJDL7V21U/KCCICkwggXJMIIEsaADAgECAhAbtY8lKt8j
 # AEkoya49fu0nMA0GCSqGSIb3DQEBDAUAMH4xCzAJBgNVBAYTAlBMMSIwIAYDVQQK
 # ExlVbml6ZXRvIFRlY2hub2xvZ2llcyBTLkEuMScwJQYDVQQLEx5DZXJ0dW0gQ2Vy
 # dGlmaWNhdGlvbiBBdXRob3JpdHkxIjAgBgNVBAMTGUNlcnR1bSBUcnVzdGVkIE5l
@@ -1014,35 +1023,35 @@ if ($Test -eq $true) {
 # IDIwMjEgQ0ECEAgyT5232pFvY+TyozxeXVEwDQYJYIZIAWUDBAIBBQCggYQwGAYK
 # KwYBBAGCNwIBDDEKMAigAoAAoQKAADAZBgkqhkiG9w0BCQMxDAYKKwYBBAGCNwIB
 # BDAcBgorBgEEAYI3AgELMQ4wDAYKKwYBBAGCNwIBFTAvBgkqhkiG9w0BCQQxIgQg
-# 7puwo09OBHPxrFt4C9r92ttfJm8GCi4MF8JRtAEhJY4wDQYJKoZIhvcNAQEBBQAE
-# ggGAt75k+6pWC0fIBda9HgyeVUFHSLbzgWGty4mUqs1IKkHma+Af0EOm6WN+/zl4
-# +XlDnruo4j0PDK0FRHX+OIK6zxSrHC5Ho8FIzNrmbfKbKxZcqs9IBTZzlBEgqw81
-# AQ7NG6uyavjN6Zzq5XlVCPqw1grzwfMLsMrRquCBTcVG1iHO4R3HuGnfYC0mxeSX
-# XIr8G5l1yvkFbdjTchHfkLY9uuL3x7VvHwjiiDbashGmbRTgT83pMtGSac+vPOrx
-# mICh0z3+m2UsvcZFIS2/64wjrVazWlaLesvt1OFqNzHnN0BwYmv04w7SNBRLEWjF
-# /TVjCu8VrpntQYUtTGeGdL2hmR5ULsY+1UsBnayQ7Fci22RTYHayolXuaaYMrX1g
-# JwuZhaQ5e/xXpUMtk29ZFw+nmNqNUD5rCPmit+wDw8a+mrysvjDKwpZSYJtACxtV
-# Oiz79WcEYqRjBr0rEA3GvSESpLcJrhSS4mpgy55Q7PHIk2yM6XRlp+HuGE9kW/Ra
-# PUrooYIEAjCCA/4GCSqGSIb3DQEJBjGCA+8wggPrAgEBMGowVjELMAkGA1UEBhMC
+# 8R+2DG4VHLQL5DeJj0Ge1dST6mnzyOhFn4W2byqF4+owDQYJKoZIhvcNAQEBBQAE
+# ggGAroQu3ZqVACdn9bVAFkYqdUn6H0o9DMsu0g3s1PftL7WI+eMLgY6w7ObkN7GB
+# U/033Wr5rQVivDuVIC8G4EnaroJxQYux+768YxzYH73QcGA6Aap1K6vRJ2klG4zU
+# ge971COvTN0V6wuxsugmnuzTxxGhI7DAQTw1XEAqe9LKTSh2zwgNdecvDyviBZsd
+# Rx8plgR062epkc23dJ51cK8v9H4dxkQ8Xa3bn94q3eb/h05hbswPmWG805LyWEBQ
+# 33gXpzUvmI+kPDVtKVzlx76JRp1I84o242GD93ry9/lbkq2pmS1dFdRz/w9ba8dG
+# g5c2xakuhYhoB+XJUWUh5r0CUvfJ0aEueF7X6YRGB5Ggqa68G/BkLfGCeVaTbbFQ
+# 7amAzfay31qFcm6haZTdMtTSgTG31BArB/gZWvrbnTWio2yhZaVwoDvk/1dbmGn+
+# uYGgfXS5spHq63cl+QpzJN9ZpeMz8XkWy+vanheR8m0lfw2ZQBzR1sPWGqTu5hHk
+# FZDCoYIEAjCCA/4GCSqGSIb3DQEJBjGCA+8wggPrAgEBMGowVjELMAkGA1UEBhMC
 # UEwxITAfBgNVBAoTGEFzc2VjbyBEYXRhIFN5c3RlbXMgUy5BLjEkMCIGA1UEAxMb
 # Q2VydHVtIFRpbWVzdGFtcGluZyAyMDIxIENBAhAJxcz4u2Z9cTeqwVmABssxMA0G
 # CWCGSAFlAwQCAgUAoIIBVjAaBgkqhkiG9w0BCQMxDQYLKoZIhvcNAQkQAQQwHAYJ
-# KoZIhvcNAQkFMQ8XDTI0MDcyNTEwNDc0OVowNwYLKoZIhvcNAQkQAi8xKDAmMCQw
+# KoZIhvcNAQkFMQ8XDTI0MDgwODE5MTAzM1owNwYLKoZIhvcNAQkQAi8xKDAmMCQw
 # IgQg6pVLsdBAtDFASNhln49hXYh0LMzgZ5LgVgJNSwA60xwwPwYJKoZIhvcNAQkE
-# MTIEMK8cILT0mj8a4CczjhAqygFqR0MWwA9uEae4i4IwiTqfFSMMqhUQHqOxzALq
-# q5ZqDTCBnwYLKoZIhvcNAQkQAgwxgY8wgYwwgYkwgYYEFA9PuFUe/9j23n9nJrQ8
+# MTIEMOQQmjh7N2c3TYLXkSAnlx9B7peqPJv2FtM1XESWX9LBHbCFrUKTzT+s7HYp
+# fy+j1DCBnwYLKoZIhvcNAQkQAgwxgY8wgYwwgYkwgYYEFA9PuFUe/9j23n9nJrQ8
 # E9Bqped3MG4wWqRYMFYxCzAJBgNVBAYTAlBMMSEwHwYDVQQKExhBc3NlY28gRGF0
 # YSBTeXN0ZW1zIFMuQS4xJDAiBgNVBAMTG0NlcnR1bSBUaW1lc3RhbXBpbmcgMjAy
-# MSBDQQIQCcXM+LtmfXE3qsFZgAbLMTANBgkqhkiG9w0BAQEFAASCAgCsgeYRUfAr
-# kivnDL2LYN5Nlbc/eL92mcbh5BM9kqyIizfSwZefY5PT8ZaVjc6YrPore66edPzz
-# HpPSQQYYAqxLBzYJan0riLh72mkeNOjyFay4UFwHyGOLrspRSOjwM9zqoAx4YURH
-# 9KE/QvM2eAX5GCd4a8PjVi1hlCBfNECwuMpy7/ne7mLo30yznuXuJjnbg1IF/UNo
-# kLDQ03jZwCeA0RDEym2ErSDfdijd8Kmmdgn6BkMitXh5CQW2rRBTj3gjHaXS3z9Q
-# nAFcljpWbXB3PKOqfGsTulybxfHs4uP1IVBxdPLPg++okfojKmxTd0/cQOmaXCc2
-# CFff3YBfow2D1l8E6ttWYOyRZvnXVqqXaOTabw42Q2rMXty7q5b0qA+dlw2jtTmu
-# z8UeD4RKnphMXF0nppQN3RN6qRS6YLMUw64FxkQH6wQXdMVOFxmVu+Srd9ljLAwi
-# JDTNC5dm4NrPQKALFE9xhIJUcOPQ2CIxLm0tJa5jOaq/EM3FNB/GrksPpuTv5T4h
-# iyK70Mij/Q0xskWKUao2OBmKoQtJMBbArnpdeZ8vX+u19blqvsyR/u+LyMojNAh/
-# jnqgEiQ01PfXDYWwSWrM0bHlFtEqwqVh8ZFUjsCVxydgmpqICVuC4E47BpeAY/Fa
-# vpEVLdiLAmUDgGt2Gxrib6HLGfZVvhSNlA==
+# MSBDQQIQCcXM+LtmfXE3qsFZgAbLMTANBgkqhkiG9w0BAQEFAASCAgA//FgvlFFK
+# CtoCZ5XUoeCTLE1nK5bVe5LzR2x1IxwRJcsMwNOfE8YPVDZdXTFq3+H2/4q15k0T
+# jd2FMHAysN92SFs3KaKiCCFg97kQSD8FJeuzv0dW4LybnltFo8gkvw9gcpX5XhVE
+# 63iADVS1yL1rYfgzc/DB+JyHPmBQZ9lIopxhGBpuhwRJUJdoJ55VPnE+udPqqKKW
+# HTuamKMH9Sy9mn1c+X8QxtAVMTKc5KmbtMXrYS/UfZAcmh+601kM644z+e7r1Z1O
+# 8HpGYWonujZLiqYmqu1Ya5Jxvsb5DrsW2N2uf2zrBkmGczUYqhzAAZzSnR5+ddy5
+# m5UVx0CWhhg9/tyf887fQiDPFLhKzXbOWP2VOV+1H80307HSD8tWqrfujjriR56I
+# zLPhLJgrl+htcTHXHCnhCcYiM8lNmPvwpRg9H4cM4Us5Gb1jkKCTHS4p5aGBG8E+
+# NmGMMxBxgSOMZJCvKHeOmjaT7KCn+pD6WIrGk42mkamZHKI9Qp48UpTm8tZAPEDG
+# 0R6U6tBKzNP3YxEusuUsvIXDJ6h9dLj9Kxksni+rejhi1IAVzBBjPktEoWIW4dET
+# oGe+Fx0ANLuK/3EdHGNibfF8dwjSn3j8pWYdStuhFuKnhFtfjSG6AkjX9IlBURn1
+# UV5xKzIQA7soV3YOVFoXbsKJFyTfgBYNSg==
 # SIG # End signature block
