@@ -28,6 +28,7 @@
 
 .PARAMETER RunLocal
     Specifies whether the script should run locally. By default, it runs remotely.
+    Don't specify this parameter when running the script in a Citrix Session.
 
 .PARAMETER LogoffOnEOL
     Specifies whether to log off the user when the end-of-life message is displayed.
@@ -37,14 +38,38 @@
 
 .PARAMETER Test
     Specifies whether the script should run in test mode.
+    Do not specify the -Test parameter when presenting the script to the user.
 
 .EXAMPLE
-    .\CWACLientDetection.ps1 -EnableLogging -LoggingPath "C:\Logs" -MessageLogo "C:\Logo.png" -MessageTextEOL "End of life message" -MessageTextCVE "CVE message" -MessageTitle "Title" -RunLocal -LogoffOnEOL -LogoffOnCVE -Test
+    .\CWACLientDetection.ps1 -EnableLogging -LoggingPath "C:\Logs" -MessageLogo "C:\Logo.png" -MessageTextEOL "Multiline`r`nEnd of life message" -MessageTextCVE "Multiline`r`nCVE message" -MessageTitle "Title" -RunLocal -LogoffOnEOL -LogoffOnCVE -Test
     Runs the script with the specified parameters in test mode, running locally and logging off the user on EOL and CVE messages.
 
 .EXAMPLE
-    .\CWACLientDetection.ps1 -JSONFilename "C:\Params.json"
+    @params = @{
+        "EnableLogging" = $true
+        "LoggingPath" = "<PathTo>\Logs"
+        "MessageLogo" = "<PathTo>\Logo.png"
+        "MessageTextEOL" = @"
+    Multiline
+    End of life message
+    "@
+        "MessageTextCVE" = @"
+    Multiline
+    CVE message
+    "@
+        "MessageTitle" = "Title"
+        "RunLocal" = $true
+        "LogoffOnEOL" = $true
+        "LogoffOnCVE" = $true
+    }
+    .\CWACLientDetection.ps1 @params [-Test]
+    Runs the script with the specified parameters while using splatting, running locally and logging off the user on EOL and CVE messages.
+    You can optionally use the -Test parameter to run the script in test mode.
+
+.EXAMPLE
+    .\CWACLientDetection.ps1 -JSONFilename "C:\CWACLientDetection.json" [-Test]
     Runs the script using the parameters loaded from the specified JSON file.
+    You can optionally use the -Test parameter to run the script in test mode.
 
 .NOTES
     File Name      : CWACLientDetection.ps1
@@ -845,8 +870,8 @@ if ($Test -eq $true) {
 # SIG # Begin signature block
 # MIIndQYJKoZIhvcNAQcCoIInZjCCJ2ICAQExDzANBglghkgBZQMEAgEFADB5Bgor
 # BgEEAYI3AgEEoGswaTA0BgorBgEEAYI3AgEeMCYCAwEAAAQQH8w7YFlLCE63JNLG
-# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCBEBBmjdoYWeyO1
-# hA1XcB53rgb61ZFFl8vGJDL7V21U/KCCICkwggXJMIIEsaADAgECAhAbtY8lKt8j
+# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCBRIewxjFEeM9Jh
+# 0DSij4GXjxfEvwq+aDSVxfqekPzi1aCCICkwggXJMIIEsaADAgECAhAbtY8lKt8j
 # AEkoya49fu0nMA0GCSqGSIb3DQEBDAUAMH4xCzAJBgNVBAYTAlBMMSIwIAYDVQQK
 # ExlVbml6ZXRvIFRlY2hub2xvZ2llcyBTLkEuMScwJQYDVQQLEx5DZXJ0dW0gQ2Vy
 # dGlmaWNhdGlvbiBBdXRob3JpdHkxIjAgBgNVBAMTGUNlcnR1bSBUcnVzdGVkIE5l
@@ -1023,35 +1048,35 @@ if ($Test -eq $true) {
 # IDIwMjEgQ0ECEAgyT5232pFvY+TyozxeXVEwDQYJYIZIAWUDBAIBBQCggYQwGAYK
 # KwYBBAGCNwIBDDEKMAigAoAAoQKAADAZBgkqhkiG9w0BCQMxDAYKKwYBBAGCNwIB
 # BDAcBgorBgEEAYI3AgELMQ4wDAYKKwYBBAGCNwIBFTAvBgkqhkiG9w0BCQQxIgQg
-# 8R+2DG4VHLQL5DeJj0Ge1dST6mnzyOhFn4W2byqF4+owDQYJKoZIhvcNAQEBBQAE
-# ggGAroQu3ZqVACdn9bVAFkYqdUn6H0o9DMsu0g3s1PftL7WI+eMLgY6w7ObkN7GB
-# U/033Wr5rQVivDuVIC8G4EnaroJxQYux+768YxzYH73QcGA6Aap1K6vRJ2klG4zU
-# ge971COvTN0V6wuxsugmnuzTxxGhI7DAQTw1XEAqe9LKTSh2zwgNdecvDyviBZsd
-# Rx8plgR062epkc23dJ51cK8v9H4dxkQ8Xa3bn94q3eb/h05hbswPmWG805LyWEBQ
-# 33gXpzUvmI+kPDVtKVzlx76JRp1I84o242GD93ry9/lbkq2pmS1dFdRz/w9ba8dG
-# g5c2xakuhYhoB+XJUWUh5r0CUvfJ0aEueF7X6YRGB5Ggqa68G/BkLfGCeVaTbbFQ
-# 7amAzfay31qFcm6haZTdMtTSgTG31BArB/gZWvrbnTWio2yhZaVwoDvk/1dbmGn+
-# uYGgfXS5spHq63cl+QpzJN9ZpeMz8XkWy+vanheR8m0lfw2ZQBzR1sPWGqTu5hHk
-# FZDCoYIEAjCCA/4GCSqGSIb3DQEJBjGCA+8wggPrAgEBMGowVjELMAkGA1UEBhMC
+# Zqw7kSMw/M2dCo4umQ2THWJAPEd/mJr4/sY/KaJxg4EwDQYJKoZIhvcNAQEBBQAE
+# ggGAmZyjWkY2ebn5j8z7Hidp7m+Oz+z7qrLPz62nWBD5rmuc452IpF6LFhQw4CVm
+# ofdoahAlHwQoqowuUcIMxmqEPYtjo/n0YHS3J5PzyTn4bO34QUIse5M3RIkc2TS4
+# FZQIjaisfrqaaGIGYcFHTbc901zU4p/cg4tLNBEoMvcFJ9wzzXr0qf1E5sbfTGNX
+# 7nSL//GU22XggtcD1sULsBQex9PZiouFFnd4MYEa8rmd9ZE6fgANLj+UvCRw6dab
+# v9No1AMexMr4qs0oOOTayeg/tDGk8BTqyDVH0mOhQEO1Btd6DlX/KhlDRMQ1gAZ1
+# 6Pp6kB6mdwueqqxqWLDeUVuYJxai0CkycHow7X7oRhD6pi1oIAmHw0c9C7MqH5v7
+# VzAUL1x8vOKb++EAVdWqEskq1Jib10mdQ1XViahVCpqyvw/GGkAfOsqFM/qzzg2W
+# jAE+HYhkXexKH6F0fWDh/j3G+uAjoeuqmCpTPy76IcfI/ZDhd8lwyKD6iUqSAmaL
+# jXWfoYIEAjCCA/4GCSqGSIb3DQEJBjGCA+8wggPrAgEBMGowVjELMAkGA1UEBhMC
 # UEwxITAfBgNVBAoTGEFzc2VjbyBEYXRhIFN5c3RlbXMgUy5BLjEkMCIGA1UEAxMb
 # Q2VydHVtIFRpbWVzdGFtcGluZyAyMDIxIENBAhAJxcz4u2Z9cTeqwVmABssxMA0G
 # CWCGSAFlAwQCAgUAoIIBVjAaBgkqhkiG9w0BCQMxDQYLKoZIhvcNAQkQAQQwHAYJ
-# KoZIhvcNAQkFMQ8XDTI0MDgwODE5MTAzM1owNwYLKoZIhvcNAQkQAi8xKDAmMCQw
+# KoZIhvcNAQkFMQ8XDTI0MDgwOTA3MzUxM1owNwYLKoZIhvcNAQkQAi8xKDAmMCQw
 # IgQg6pVLsdBAtDFASNhln49hXYh0LMzgZ5LgVgJNSwA60xwwPwYJKoZIhvcNAQkE
-# MTIEMOQQmjh7N2c3TYLXkSAnlx9B7peqPJv2FtM1XESWX9LBHbCFrUKTzT+s7HYp
-# fy+j1DCBnwYLKoZIhvcNAQkQAgwxgY8wgYwwgYkwgYYEFA9PuFUe/9j23n9nJrQ8
+# MTIEMMY2lm1hogwqAJM1szhgnJPQD7rGsf4LA6HBEDdvJjtJAkF0FGivNWOHHzMf
+# QcPQUTCBnwYLKoZIhvcNAQkQAgwxgY8wgYwwgYkwgYYEFA9PuFUe/9j23n9nJrQ8
 # E9Bqped3MG4wWqRYMFYxCzAJBgNVBAYTAlBMMSEwHwYDVQQKExhBc3NlY28gRGF0
 # YSBTeXN0ZW1zIFMuQS4xJDAiBgNVBAMTG0NlcnR1bSBUaW1lc3RhbXBpbmcgMjAy
-# MSBDQQIQCcXM+LtmfXE3qsFZgAbLMTANBgkqhkiG9w0BAQEFAASCAgA//FgvlFFK
-# CtoCZ5XUoeCTLE1nK5bVe5LzR2x1IxwRJcsMwNOfE8YPVDZdXTFq3+H2/4q15k0T
-# jd2FMHAysN92SFs3KaKiCCFg97kQSD8FJeuzv0dW4LybnltFo8gkvw9gcpX5XhVE
-# 63iADVS1yL1rYfgzc/DB+JyHPmBQZ9lIopxhGBpuhwRJUJdoJ55VPnE+udPqqKKW
-# HTuamKMH9Sy9mn1c+X8QxtAVMTKc5KmbtMXrYS/UfZAcmh+601kM644z+e7r1Z1O
-# 8HpGYWonujZLiqYmqu1Ya5Jxvsb5DrsW2N2uf2zrBkmGczUYqhzAAZzSnR5+ddy5
-# m5UVx0CWhhg9/tyf887fQiDPFLhKzXbOWP2VOV+1H80307HSD8tWqrfujjriR56I
-# zLPhLJgrl+htcTHXHCnhCcYiM8lNmPvwpRg9H4cM4Us5Gb1jkKCTHS4p5aGBG8E+
-# NmGMMxBxgSOMZJCvKHeOmjaT7KCn+pD6WIrGk42mkamZHKI9Qp48UpTm8tZAPEDG
-# 0R6U6tBKzNP3YxEusuUsvIXDJ6h9dLj9Kxksni+rejhi1IAVzBBjPktEoWIW4dET
-# oGe+Fx0ANLuK/3EdHGNibfF8dwjSn3j8pWYdStuhFuKnhFtfjSG6AkjX9IlBURn1
-# UV5xKzIQA7soV3YOVFoXbsKJFyTfgBYNSg==
+# MSBDQQIQCcXM+LtmfXE3qsFZgAbLMTANBgkqhkiG9w0BAQEFAASCAgB8vevqi1Uc
+# B6Q4l9ZzeUswHpjkOwPCJsnnc9jtlTq9rKSCJvmT9DDG4DI/92MH1W20jgQA3MiO
+# WTNo7HJBS3PT70sqRNR38TyRsGfGLPHLQ5UxXI23PZ5hnqji9pIzHrx11W1W3kes
+# tk+s/6fVfbut3euGZAW/kptpeOpqrcQ7/cYlN/55RtHzj2z8IgrdnmwAGL8Qis/i
+# OJKqHYGKe1bzheWppy0npeH5vXgyQhT2eHGaefjYYDqDViqP3SyRXHRevLxpPVUC
+# cKQRU+V6AKUqnJcC0sS+2ZrY0vZOD1+Pd/uVzDIPvvQcXOEi1Z05XIGfUhWtNfVK
+# zql7Q52l+gB3thaezLNVgBTpNIMM2HN8c/0aZo8aqZFXBzF7b73t/e9fWZeqgZDl
+# i4UCki2QP+D4LpWMD+l08TqrTSJOJOyCDcQ2ZmC2L31PL/ob9OpiH5YPICvBQPqb
+# P/BQxiLlSZsAgf+MhaGKUqkEulZ2weUetKyg1tZEy3STFY5ZrIMoV+RR+PHzIPpC
+# PGvPuGSZsVJUia+aeRQw7CgSt53bozY549jHNwT5oVC96rL9S82HhG5uKG4UA7wH
+# alviWkXRNIWDmELwgpeg3Kf/ByzmtYlSw1YeE/EqSetQmILbFPhNz/U9mU/duFdv
+# SHLZy2baFA4tu2cQwZ+Jew0OZe9MvYbfTQ==
 # SIG # End signature block
