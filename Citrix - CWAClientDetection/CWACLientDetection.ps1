@@ -75,7 +75,7 @@
     File Name      : CWACLientDetection.ps1
     Author         : John Billekens Consultancy
     Prerequisite   : PowerShell V2.0
-    Version        : 1.2
+    Version        : 2024.911.1215
     Copyright      : Copyright (c) 2024 John Billekens Consultancy
 
 #>
@@ -247,6 +247,12 @@ function Test-CWAWindowsVersion {
     #Citrix Workspace app for Windows versions before 2403.1 >=24.03.0 <24.3.1.97
     #Citrix Workspace app for Windows versions before 2402 LTSR >=22.04.0 <24.2.0.172
 
+    #CVE-2024-7889 and CVE-2024-7890
+    #https://support.citrix.com/article/CTX691485
+    #Affected:
+    #Citrix Workspace app for Windows versions before 2405 >=24.03.0 <24.05.0
+    #Citrix Workspace app for Windows versions before 2402 LTSR CU1 <24.2.1000.1016
+
     switch ($version) {
         { $_ -ge [Version]"19.13.0" -and $_ -lt [Version]"21.5.0" } {
             # Citrix Workspace App versions before 2105 - CTX307794
@@ -304,6 +310,18 @@ function Test-CWAWindowsVersion {
             $isCveImpacted = $true
             $cves += "CVE-2024-6286"
         }
+        { $_ -ge [Version]"24.03.0" -and $_ -lt [Version]"24.05.0" } {
+            # Citrix Workspace app for Windows versions before 2405 - CTX691485
+            $isCveImpacted = $true
+            $cves += "CVE-2024-7889"
+            $cves += "CVE-2024-7890"
+        }
+        { $_ -lt [Version]"24.2.1000.1016" } {
+            # Citrix Workspace app for Windows versions before 2402 LTSR CU1 - CTX691485
+            $isCveImpacted = $true
+            $cves += "CVE-2024-7889"
+            $cves += "CVE-2024-7890"
+        }
         { $_ -le [Version]"19.11.0" -or $_ -le [Version]"19.12.7002" } {
             $isCveImpacted = $true
         }
@@ -320,6 +338,15 @@ function Test-CWAWindowsVersion {
             $isLtsrVersion = $true
         }
         #https://www.citrix.com/support/product-lifecycle/workspace-app.html
+        { $_ -eq [Version]"24.5.0.131" -and (Get-Date) -le [DateTime]"2026-1-8" } {
+            $isEOL = $true
+        }
+        { $_ -eq [Version]"24.3.1.97" -and (Get-Date) -le [DateTime]"2025-11-21" } {
+            $isEOL = $true
+        }
+        { $_ -eq [Version]"24.3.0.93" -and (Get-Date) -le [DateTime]"2025-10-24" } {
+            $isEOL = $true
+        }
         { $_ -eq [Version]"23.11.0.132" -and (Get-Date) -le [DateTime]"2025-6-25" } {
             $isEOL = $true
         }
@@ -423,6 +450,9 @@ function Test-CWALinuxVersion {
         { $_ -lt [Version]"24.2" -and (Get-Date) -le [DateTime]"2025-9-7" } {
             $isEOL = $true
         }
+        { $_ -lt [Version]"24.5" -and (Get-Date) -le [DateTime]"2025-12-12" } {
+            $isEOL = $true
+        }
         { $_ -gt [Version]"22.03.0" -and $_ -lt [Version]"22.4.0" } {
             $isLtsrVersion = $true
         }
@@ -479,6 +509,9 @@ function Test-CWAMacVersion {
         }
         { $_ -ge [Version]"24.2.0" -and $_ -lt [Version]"24.3.0" } {
             $isLtsrVersion = $true
+        }
+        { $_ -ge [Version]"24.05.0.89" -and (Get-Date) -le [DateTime]"2026-1-9" } {
+            $isEOL = $true
         }
         { $_ -le [Version]"24.02.0.78" -and (Get-Date) -le [DateTime]"2025-10-11" } {
             $isEOL = $true
@@ -871,8 +904,8 @@ if ($Test -eq $true) {
 # SIG # Begin signature block
 # MIIndQYJKoZIhvcNAQcCoIInZjCCJ2ICAQExDzANBglghkgBZQMEAgEFADB5Bgor
 # BgEEAYI3AgEEoGswaTA0BgorBgEEAYI3AgEeMCYCAwEAAAQQH8w7YFlLCE63JNLG
-# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCByHaa+GJ3siWNw
-# tynGNQ9ZtznwI31VGisq/1HMdQFK5qCCICkwggXJMIIEsaADAgECAhAbtY8lKt8j
+# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCCjyRaa24v7uX6L
+# 3sqANvMOtKnSkjVVL2FLYjLNVZOLF6CCICkwggXJMIIEsaADAgECAhAbtY8lKt8j
 # AEkoya49fu0nMA0GCSqGSIb3DQEBDAUAMH4xCzAJBgNVBAYTAlBMMSIwIAYDVQQK
 # ExlVbml6ZXRvIFRlY2hub2xvZ2llcyBTLkEuMScwJQYDVQQLEx5DZXJ0dW0gQ2Vy
 # dGlmaWNhdGlvbiBBdXRob3JpdHkxIjAgBgNVBAMTGUNlcnR1bSBUcnVzdGVkIE5l
@@ -1049,35 +1082,35 @@ if ($Test -eq $true) {
 # IDIwMjEgQ0ECEAgyT5232pFvY+TyozxeXVEwDQYJYIZIAWUDBAIBBQCggYQwGAYK
 # KwYBBAGCNwIBDDEKMAigAoAAoQKAADAZBgkqhkiG9w0BCQMxDAYKKwYBBAGCNwIB
 # BDAcBgorBgEEAYI3AgELMQ4wDAYKKwYBBAGCNwIBFTAvBgkqhkiG9w0BCQQxIgQg
-# PUskRNbC2eYxiHnYKSXvw99I9BzbvWNl8XkXvv5/A6owDQYJKoZIhvcNAQEBBQAE
-# ggGAiE1BuxFbmWDhst3TuelVRWv8T4q1U1UZbZn9rx71elJcV5zU+fAJj/fVjYq8
-# eGxqaa0D+XOgV0XywW8XTP2d1AQdCrJcLNl66SDEOsTtaomiQPyJsk+o1qV5TY3H
-# UEAnQDODz8UY52ma3Yz/aLVPjqa8wc/zjPcOpiOg7b+BJVnaFk/6xUpxaKHwuQbl
-# 7//7ucV/PVY2RUklNcqwl4YCtVio9Rdr19QHKxffrMgHBvDFkoIXKST3xdoe2RQ4
-# pORDmCBJ1yuL8C+LRFl2blLfO0UUXdKxDEw2cqFAFIzXAoh9qI/KojGRjFWG+vWy
-# RrLUVvreLlYQM7Rl94WMLIs97+rzMCsyoXf2F/NV+4Kx7iqu2rs64Hr2ZaBb12nG
-# qpof9yTRENX4WAwxHyREFAMDwWd3O2Qjde23XBpIGcbn8G/+Gf5pdNvAEYcLfKME
-# xSUTZy8VOVYPKuDH8SLfP0kAmKJb1tjC5HyVoXEjeHJ+CL2gQsFrZBt+wQuDTi8j
-# o3jioYIEAjCCA/4GCSqGSIb3DQEJBjGCA+8wggPrAgEBMGowVjELMAkGA1UEBhMC
+# IfB6JWA/H39z4a5pbm2jEIybq6nNLmL6I1jhsJJQUHowDQYJKoZIhvcNAQEBBQAE
+# ggGAFBQbMmEZAuaihHbjdpYMXX4nShDYi9Lat3BxQT06HBBu60iTcCvw/XgBzvHI
+# yA0EcT47Uo8gUIluCezDwGpA0smeWYId3WEkhnuKfppMc2OulzitIsSX4gNYkuZf
+# 6bp7bQ3f+PGqMf8ESguHBPXdpRtQQQdy64QYgGxVcykeICfapYYlJb5u0zHc1LT6
+# KDSDSuzUxknfK+dW0KA5E8GlOKMNqOFxGUObW++ntOBwpTZU/0pGsr9V6cCp8+0x
+# LiSXns2A67K5jPdb4331KYaqtw1QfI6ybzoHo7dqH/5rcaajlvgYjaQzG8xovv2D
+# pm7rC4+nQb8vnR5UNzOm/IjuoT9+QOvPMbZrtQvw0wZWFFp9y80FU6122NDA0K9E
+# QDP3v8W73OTJb0XRWhptLQWbWmZrGFZBdWOWgctm4XylY03Lp2pepbrjBmKuZ6vl
+# tLT/J3qRV+XB7VpoIAr0lV4mgBG8rpKXmwWStOg1jIYnejhkpz6XKckPtbEylOX1
+# THuIoYIEAjCCA/4GCSqGSIb3DQEJBjGCA+8wggPrAgEBMGowVjELMAkGA1UEBhMC
 # UEwxITAfBgNVBAoTGEFzc2VjbyBEYXRhIFN5c3RlbXMgUy5BLjEkMCIGA1UEAxMb
 # Q2VydHVtIFRpbWVzdGFtcGluZyAyMDIxIENBAhAJxcz4u2Z9cTeqwVmABssxMA0G
 # CWCGSAFlAwQCAgUAoIIBVjAaBgkqhkiG9w0BCQMxDQYLKoZIhvcNAQkQAQQwHAYJ
-# KoZIhvcNAQkFMQ8XDTI0MDgxNTE4MTczMVowNwYLKoZIhvcNAQkQAi8xKDAmMCQw
+# KoZIhvcNAQkFMQ8XDTI0MDkxMTEwMjE1OFowNwYLKoZIhvcNAQkQAi8xKDAmMCQw
 # IgQg6pVLsdBAtDFASNhln49hXYh0LMzgZ5LgVgJNSwA60xwwPwYJKoZIhvcNAQkE
-# MTIEMORbjYgp2zPBbSKHWFmftQrtd+aMKjStX5svcuJHIr+bGagM6sGI5kER90Ui
-# nkvySTCBnwYLKoZIhvcNAQkQAgwxgY8wgYwwgYkwgYYEFA9PuFUe/9j23n9nJrQ8
+# MTIEMGS9n+RWkDKmBr4eqbsOYBBL5K2CzHujwwKmRWj6Aekt02/KlaBlMNtHcPme
+# kWRWJTCBnwYLKoZIhvcNAQkQAgwxgY8wgYwwgYkwgYYEFA9PuFUe/9j23n9nJrQ8
 # E9Bqped3MG4wWqRYMFYxCzAJBgNVBAYTAlBMMSEwHwYDVQQKExhBc3NlY28gRGF0
 # YSBTeXN0ZW1zIFMuQS4xJDAiBgNVBAMTG0NlcnR1bSBUaW1lc3RhbXBpbmcgMjAy
-# MSBDQQIQCcXM+LtmfXE3qsFZgAbLMTANBgkqhkiG9w0BAQEFAASCAgCgQAkmfGBn
-# wgiY6HrNet1GQ1D50QExsC7HbGAo7el2r0pxGcfUtu2/VqFG3W/c3YfT7+xzloi+
-# Txs7ZArpIaTuoYJIOEfK7Ys4atk0v+Nqg5HYzuQOt5yNXpVL3dXkDdDzvhXS++Gu
-# Qxd7INE99D/cGSVzbZ/MqAzqNCGh3rTguNav9bN6TOkBIO5XKCpRYKdrUw9qBson
-# 7QtESTtjv/QgpyJudzo9GHWhUiN00GitQ+tK+LP7CcGQF0jRDIwR/DnsZ1m8akZj
-# gjSiNDV2W46EqKUlSLqNYTeXRtZEkufuVMbWP6cESjyr9WUtwOX2SSE2XBCeLY1N
-# 4EUcn4XOTd23R5x6Nr1/EBWHZMavm63N3ZLHgxSPMXPVgSc6fKpy01MmLhB+D7dU
-# 9ztKaHRHNNbrc3YRzwtteTAvtrW03AtfOwftu+KsCb5iw2sGebRYyUUfWLHXiqGq
-# jKzZaobwv6jzPi1Pz+rHvbDYPZFiz8ztzbHE/NB/HwJoDupwBq8rvZls7CXyWQUY
-# nEpA1SSg0O3y2bcnL0hCw+RP/+q6MTbwwUkU4a+wvk53H24KxpSB16ToI6XQMCDv
-# 7iNGlhfN5EafJWdrWInFIUTrT/9qA2j+gXJCNtQLcbksmUWSKvPVCqIIYfGmOytY
-# 0IGwIArSvHY03QwWiCFH5yXqhOg+tU93ew==
+# MSBDQQIQCcXM+LtmfXE3qsFZgAbLMTANBgkqhkiG9w0BAQEFAASCAgAphXrAX5zM
+# 3j1yf0pLH/Tq4YAbaOORfL8ijdbT1uAtWm0K993AbJ9cb2IAM0jrQCGuzQYJssqg
+# uDXTi/Azre5UlaUGfv3RsmqDZE9tmVCSaNZ9LRj0UPDdvKM9i/varLDkYdMDw2cU
+# WWGvmZUjVVPjt7wjOAendAmqibbBEUmynD9aBxNzuc8yFDaWoW/sDXIHVoZNHrPx
+# wvz7KwV/Kgx4vXmdZ+TGSTb0hG3Mgz8Q5E3KtdncIZElrXcJhlNUcgF+aV0TQrAy
+# FCY2PBFFBmnbYRT7qpFqF2pNKvvz2Sx2oyO8yr144HUWHgAWOkFyYp5VdBgGAUh+
+# /4KUJUTq1lj8x96S3TCK0E/rI2I6oheqKadPAvA57pzUOjez+4E41b5PV5rrUpEn
+# 74y8u03obhhH9BH2+cG7zTCoQMrZYRTKZQNzspO6bKpF80uqak1Lr6/kcUGJ1dKK
+# TfU/CshMzu8HtZq19Q6W4fhj5IoQX3KkAlTjx0jvEmhgNHpOae13NEbzqfGGUwdm
+# KITWinBqtbyUsda7a08s9xHjAvyErXmlY+b3w47dZXzdN+TA9SRIOpR7CYaoQw0W
+# yowTj1cpBHGfmK4Nck0dmNJ+QuXpe+cr8b2BP5M6FuV2RhJz15fspNAm1MhMOdy2
+# usT+q8dFRmaKUT6D3nd8pX3uTjQjVVaVNQ==
 # SIG # End signature block
