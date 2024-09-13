@@ -75,7 +75,7 @@
     File Name      : CWACLientDetection.ps1
     Author         : John Billekens Consultancy
     Prerequisite   : PowerShell V2.0
-    Version        : 2024.913.900
+    Version        : 2024.913.1000
     Copyright      : Copyright (c) 2024 John Billekens Consultancy
 
 #>
@@ -338,40 +338,40 @@ function Test-CWAWindowsVersion {
             $isLtsrVersion = $true
         }
         #https://www.citrix.com/support/product-lifecycle/workspace-app.html
-        { $_ -eq [Version]"24.5.0.131" -and (Get-Date) -le [DateTime]"2026-1-8" } {
+        { $_ -eq [Version]"24.5.0.131" -and (Get-Date) -ge [DateTime]"2026-1-8" } {
             $isEOL = $true
         }
-        { $_ -eq [Version]"24.3.1.97" -and (Get-Date) -le [DateTime]"2025-11-21" } {
+        { $_ -eq [Version]"24.3.1.97" -and (Get-Date) -ge [DateTime]"2025-11-21" } {
             $isEOL = $true
         }
-        { $_ -eq [Version]"24.3.0.93" -and (Get-Date) -le [DateTime]"2025-10-24" } {
+        { $_ -eq [Version]"24.3.0.93" -and (Get-Date) -ge [DateTime]"2025-10-24" } {
             $isEOL = $true
         }
-        { $_ -eq [Version]"23.11.0.132" -and (Get-Date) -le [DateTime]"2025-6-25" } {
+        { $_ -eq [Version]"23.11.0.132" -and (Get-Date) -ge [DateTime]"2025-6-25" } {
             $isEOL = $true
         }
-        { $_ -eq [Version]"23.9.1.104" -and (Get-Date) -le [DateTime]"2025-5-2" } {
+        { $_ -eq [Version]"23.9.1.104" -and (Get-Date) -ge [DateTime]"2025-5-2" } {
             $isEOL = $true
         }
-        { $_ -eq [Version]"23.9.0.99" -and (Get-Date) -le [DateTime]"2025-4-10" } {
+        { $_ -eq [Version]"23.9.0.99" -and (Get-Date) -ge [DateTime]"2025-4-10" } {
             $isEOL = $true
         }
-        { $_ -eq [Version]"23.7.1.18" -and (Get-Date) -le [DateTime]"2025-2-12" } {
+        { $_ -eq [Version]"23.7.1.18" -and (Get-Date) -ge [DateTime]"2025-2-12" } {
             $isEOL = $true
         }
-        { $_ -eq [Version]"23.7.0.15" -and (Get-Date) -le [DateTime]"2025-2-12" } {
+        { $_ -eq [Version]"23.7.0.15" -and (Get-Date) -ge [DateTime]"2025-2-12" } {
             $isEOL = $true
         }
-        { $_ -eq [Version]"23.5.1.83" -and (Get-Date) -le [DateTime]"2025-1-3" } {
+        { $_ -eq [Version]"23.5.1.83" -and (Get-Date) -ge [DateTime]"2025-1-3" } {
             $isEOL = $true
         }
-        { $_ -eq [Version]"23.3.0.55" -and (Get-Date) -le [DateTime]"2024-9-29" } {
+        { $_ -eq [Version]"23.3.0.55" -and (Get-Date) -ge [DateTime]"2024-9-29" } {
             $isEOL = $true
         }
-        { $_ -eq [Version]"23.2.0.38" -and (Get-Date) -le [DateTime]"2024-8-16" } {
+        { $_ -eq [Version]"23.2.0.38" -and (Get-Date) -ge [DateTime]"2024-8-16" } {
             $isEOL = $true
         }
-        { $_ -eq [Version]"22.12.0.48" -and (Get-Date) -le [DateTime]"2024-7-23" } {
+        { $_ -eq [Version]"22.12.0.48" -and (Get-Date) -ge [DateTime]"2024-7-23" } {
             $isEOL = $true
         }
         { $_ -le [Version]"22.10.5.14" } {
@@ -420,37 +420,37 @@ function Test-CWALinuxVersion {
             $isCveImpacted = $true
             $cves += "CVE-2023-24486"
         }
-        { $_ -lt [Version]"22.9" -and (Get-Date) -le [DateTime]"2024-3-29" } {
+        { $_ -lt [Version]"22.9" -and (Get-Date) -ge [DateTime]"2024-3-29" } {
             $isEOL = $true
         }
-        { $_ -lt [Version]"22.11" -and (Get-Date) -le [DateTime]"2024-5-08" } {
+        { $_ -lt [Version]"22.11" -and (Get-Date) -ge [DateTime]"2024-5-08" } {
             $isEOL = $true
         }
-        { $_ -lt [Version]"22.12" -and (Get-Date) -le [DateTime]"2024-6-1" } {
+        { $_ -lt [Version]"22.12" -and (Get-Date) -ge [DateTime]"2024-6-1" } {
             $isEOL = $true
         }
-        { $_ -lt [Version]"23.2" -and (Get-Date) -le [DateTime]"2024-8-1" } {
+        { $_ -lt [Version]"23.2" -and (Get-Date) -ge [DateTime]"2024-8-1" } {
             $isEOL = $true
         }
-        { $_ -lt [Version]"23.3" -and (Get-Date) -le [DateTime]"2024-9-23" } {
+        { $_ -lt [Version]"23.3" -and (Get-Date) -ge [DateTime]"2024-9-23" } {
             $isEOL = $true
         }
-        { $_ -lt [Version]"23.5" -and (Get-Date) -le [DateTime]"2024-11-30" } {
+        { $_ -lt [Version]"23.5" -and (Get-Date) -ge [DateTime]"2024-11-30" } {
             $isEOL = $true
         }
-        { $_ -lt [Version]"23.7" -and (Get-Date) -le [DateTime]"2025-1-6" } {
+        { $_ -lt [Version]"23.7" -and (Get-Date) -ge [DateTime]"2025-1-6" } {
             $isEOL = $true
         }
-        { $_ -lt [Version]"23.9" -and (Get-Date) -le [DateTime]"2025-4-28" } {
+        { $_ -lt [Version]"23.9" -and (Get-Date) -ge [DateTime]"2025-4-28" } {
             $isEOL = $true
         }
-        { $_ -lt [Version]"23.11" -and (Get-Date) -le [DateTime]"2025-7-13" } {
+        { $_ -lt [Version]"23.11" -and (Get-Date) -ge [DateTime]"2025-7-13" } {
             $isEOL = $true
         }
-        { $_ -lt [Version]"24.2" -and (Get-Date) -le [DateTime]"2025-9-7" } {
+        { $_ -lt [Version]"24.2" -and (Get-Date) -ge [DateTime]"2025-9-7" } {
             $isEOL = $true
         }
-        { $_ -lt [Version]"24.5" -and (Get-Date) -le [DateTime]"2025-12-12" } {
+        { $_ -lt [Version]"24.5" -and (Get-Date) -ge [DateTime]"2025-12-12" } {
             $isEOL = $true
         }
         { $_ -gt [Version]"22.03.0" -and $_ -lt [Version]"22.4.0" } {
@@ -510,37 +510,37 @@ function Test-CWAMacVersion {
         { $_ -ge [Version]"24.2.0" -and $_ -lt [Version]"24.3.0" } {
             $isLtsrVersion = $true
         }
-        { $_ -le [Version]"24.05.0.89" -and (Get-Date) -le [DateTime]"2026-1-9" } {
+        { $_ -le [Version]"24.05.0.89" -and (Get-Date) -ge [DateTime]"2026-1-9" } {
             $isEOL = $true
         }
-        { $_ -le [Version]"24.02.0.78" -and (Get-Date) -le [DateTime]"2025-10-11" } {
+        { $_ -le [Version]"24.02.0.78" -and (Get-Date) -ge [DateTime]"2025-10-11" } {
             $isEOL = $true
         }
-        { $_ -le [Version]"23.1.0.67" -and (Get-Date) -le [DateTime]"2025-6-21" } {
+        { $_ -le [Version]"23.1.0.67" -and (Get-Date) -ge [DateTime]"2025-6-21" } {
             $isEOL = $true
         }
-        { $_ -le [Version]"23.09.0.4" -and (Get-Date) -le [DateTime]"2025-3-27" } {
+        { $_ -le [Version]"23.09.0.4" -and (Get-Date) -ge [DateTime]"2025-3-27" } {
             $isEOL = $true
         }
-        { $_ -le [Version]"23.08.0.57" -and (Get-Date) -le [DateTime]"2025-3-15" } {
+        { $_ -le [Version]"23.08.0.57" -and (Get-Date) -ge [DateTime]"2025-3-15" } {
             $isEOL = $true
         }
-        { $_ -le [Version]"23.07.6.64" -and (Get-Date) -le [DateTime]"2025-1-26" } {
+        { $_ -le [Version]"23.07.6.64" -and (Get-Date) -ge [DateTime]"2025-1-26" } {
             $isEOL = $true
         }
-        { $_ -le [Version]"23.06.0.3" -and (Get-Date) -le [DateTime]"2024-12-22" } {
+        { $_ -le [Version]"23.06.0.3" -and (Get-Date) -ge [DateTime]"2024-12-22" } {
             $isEOL = $true
         }
-        { $_ -le [Version]"23.05.0.36" -and (Get-Date) -le [DateTime]"2024-11-29" } {
+        { $_ -le [Version]"23.05.0.36" -and (Get-Date) -ge [DateTime]"2024-11-29" } {
             $isEOL = $true
         }
-        { $_ -le [Version]"23.04.0.36" -and (Get-Date) -le [DateTime]"2024-10-13" } {
+        { $_ -le [Version]"23.04.0.36" -and (Get-Date) -ge [DateTime]"2024-10-13" } {
             $isEOL = $true
         }
-        { $_ -le [Version]"23.01.1.60" -and (Get-Date) -le [DateTime]"2024-9-24" } {
+        { $_ -le [Version]"23.01.1.60" -and (Get-Date) -ge [DateTime]"2024-9-24" } {
             $isEOL = $true
         }
-        { $_ -le [Version]"23.01.0.53" -and (Get-Date) -le [DateTime]"2024-7-12" } {
+        { $_ -le [Version]"23.01.0.53" -and (Get-Date) -ge [DateTime]"2024-7-12" } {
             $isEOL = $true
         }
         { $_ -lt [Version]"23.01.0.53" } {
@@ -904,8 +904,8 @@ if ($Test -eq $true) {
 # SIG # Begin signature block
 # MIIndQYJKoZIhvcNAQcCoIInZjCCJ2ICAQExDzANBglghkgBZQMEAgEFADB5Bgor
 # BgEEAYI3AgEEoGswaTA0BgorBgEEAYI3AgEeMCYCAwEAAAQQH8w7YFlLCE63JNLG
-# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCCOMLi2BNf/oIiQ
-# ufkI6D4q0u5EIzfeZnt8pYE6dbZd/KCCICkwggXJMIIEsaADAgECAhAbtY8lKt8j
+# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCD8lQhKFWmnImmk
+# vE5OhnNb+nrRYKM7iY/k6LklHhL7cqCCICkwggXJMIIEsaADAgECAhAbtY8lKt8j
 # AEkoya49fu0nMA0GCSqGSIb3DQEBDAUAMH4xCzAJBgNVBAYTAlBMMSIwIAYDVQQK
 # ExlVbml6ZXRvIFRlY2hub2xvZ2llcyBTLkEuMScwJQYDVQQLEx5DZXJ0dW0gQ2Vy
 # dGlmaWNhdGlvbiBBdXRob3JpdHkxIjAgBgNVBAMTGUNlcnR1bSBUcnVzdGVkIE5l
@@ -1082,35 +1082,35 @@ if ($Test -eq $true) {
 # IDIwMjEgQ0ECEAgyT5232pFvY+TyozxeXVEwDQYJYIZIAWUDBAIBBQCggYQwGAYK
 # KwYBBAGCNwIBDDEKMAigAoAAoQKAADAZBgkqhkiG9w0BCQMxDAYKKwYBBAGCNwIB
 # BDAcBgorBgEEAYI3AgELMQ4wDAYKKwYBBAGCNwIBFTAvBgkqhkiG9w0BCQQxIgQg
-# fzev/3zPJi9x8YVKVTQxyNkEsDtK8oIA2t4bhfMNDtQwDQYJKoZIhvcNAQEBBQAE
-# ggGArzA+R5cWKlRZGi5LQyk+dvKxQ+85SIc2xwDgmN/Ap7Y5kqEeGO6DpOtk3+Ip
-# u/GwXBKR+ANf8Fg3HqJ5yFwsMATHfz0337UYqj2UVuI/yAWBiSpjmcH2HrdBGz5D
-# FoNz7fuRFpPGgYnGisZ/MjSLJt/nZhqVETqBk55GGdwTaC7X5TT7ZaevrD8kO+XK
-# UK9gMWiRosHUROfwRQ13/Mhq1INgwNXV8ne0YIX3YVFpALBv8JV+ZNKOZFXu1CMe
-# AtQYtBojNQB+FoRiRjJe56PbttXjTfmOhAa6KDCBCysdgj6klAH2u95/IxM6eSyq
-# 64IhAAilrb/Q1ePQw3p66l3Hmd58gco8kFm/8d7CqSqkwK19nMdWkbz5z+bYmxt2
-# ZxYVUWWLyo+r2eXahZDEIB6nMduLayCdLT2srcwpbZrsIKzLlcRKTxk+GspQ0Wyj
-# I/VnadB1nmUyPMVRUw34o0KdsUnTyJesQ6IZOHt+pdwVQKvsifp4vG6VgOW7lmjM
-# ILCzoYIEAjCCA/4GCSqGSIb3DQEJBjGCA+8wggPrAgEBMGowVjELMAkGA1UEBhMC
+# b34qNexem5Guf4trbI/8E0j2xMt4n4hSHxBg/kyHhzQwDQYJKoZIhvcNAQEBBQAE
+# ggGAS10Pxgq1l+v50QGh69mKRkxfXjhp4CxEX/sQjL8q1/dR2WmfuLQ8gjwYZPnh
+# T0YaoUEfzXddjcUlrGi1siY5t8UaJRkRk1iDCOWnwJbVmXAa0dqntSvchhIYE5hV
+# PR38pFGF7KwZIzeuTPhR3kBx4lGdgrk8Ja3mZQuLmCoF5q9s4vqLNIULze2VpEzd
+# bm4devWofCcy2qQr9quBD9NCaO0LKpw0GCuEyIOvjZzFk8LNCFpcZsJU9ECdNpNB
+# 2wsm4yHgysDvU99rHC5bMOJ1y0QUkdppVGyXb7HqSwHFG6FwjBS0rYSzsxrHQY91
+# Dgaj5EoyggI9NhpsZL/0wRfBNKzrfIDnbrqdteOQV1T1j5aoIrNTUw1BfSXYgtsL
+# NGLC0jxEhNcjmXEdRH33uw0w99ZksQ67UAmgwRhEmTREltNuEBbL1nXXOhfrL1oG
+# LTfV80Cqn/SaeRm8YPb3dzpqfwCTrNVdQUaS/K86EQM0Q5g15TNjAVJbrenKLrGy
+# UuY2oYIEAjCCA/4GCSqGSIb3DQEJBjGCA+8wggPrAgEBMGowVjELMAkGA1UEBhMC
 # UEwxITAfBgNVBAoTGEFzc2VjbyBEYXRhIFN5c3RlbXMgUy5BLjEkMCIGA1UEAxMb
 # Q2VydHVtIFRpbWVzdGFtcGluZyAyMDIxIENBAhAJxcz4u2Z9cTeqwVmABssxMA0G
 # CWCGSAFlAwQCAgUAoIIBVjAaBgkqhkiG9w0BCQMxDQYLKoZIhvcNAQkQAQQwHAYJ
-# KoZIhvcNAQkFMQ8XDTI0MDkxMzA3MDkyN1owNwYLKoZIhvcNAQkQAi8xKDAmMCQw
+# KoZIhvcNAQkFMQ8XDTI0MDkxMzA3NTMzNlowNwYLKoZIhvcNAQkQAi8xKDAmMCQw
 # IgQg6pVLsdBAtDFASNhln49hXYh0LMzgZ5LgVgJNSwA60xwwPwYJKoZIhvcNAQkE
-# MTIEMG3Y8zgIYj9gqU4/lEcou2pweQKwi8PZamx86yktAKPXOGn7gX77Of5xmQ2G
-# wWd6ETCBnwYLKoZIhvcNAQkQAgwxgY8wgYwwgYkwgYYEFA9PuFUe/9j23n9nJrQ8
+# MTIEMCXHLpf7loaUL8Rlay2UZXTpbPd8V/oMoU+1ki+NO9ni5tZEE3Y2RQUdIQhs
+# 89nOdTCBnwYLKoZIhvcNAQkQAgwxgY8wgYwwgYkwgYYEFA9PuFUe/9j23n9nJrQ8
 # E9Bqped3MG4wWqRYMFYxCzAJBgNVBAYTAlBMMSEwHwYDVQQKExhBc3NlY28gRGF0
 # YSBTeXN0ZW1zIFMuQS4xJDAiBgNVBAMTG0NlcnR1bSBUaW1lc3RhbXBpbmcgMjAy
-# MSBDQQIQCcXM+LtmfXE3qsFZgAbLMTANBgkqhkiG9w0BAQEFAASCAgCmzmkXakoJ
-# 627d9SNa0eugRZYmoV/J0uB1s7c7ppK/WpeuqvFFWi9kloJ7BWPV+smQKZmT5+k6
-# JybyBiXvv2B2ksBsUputJm9y1ZoDpBjNOMom/rJXdgmJCB2lMn+MyJdwvK66M2JG
-# QqvQl73s+mtdk9pkP1WCfbkdaqps8iZdrkwUx4p0nLRxAJ6HIsC3cj4E0fiUy3hF
-# 312v4RO5TgnfJ5XqHFaQfYcpOTNkk6wGJz/UIHDstH8wggIewnRFUXMLWaF/LzFf
-# J2YCUqY6bTJadC5/e8FYI/a1sqX8A9qmND/lW8Gep2f9jaSly0Yp44c+zRTHfO6j
-# rnxgIIOVB2+xW1dLPdFOjjXOg7LtRlH7UDxTgMERFu5iqOig8hMO1uJctUc5BqRp
-# MICXCNKmmPdIIr4LdEU0IHROwx9QxtdpEHkSYTmSKs8tl8hxW4dF3+SFPLaycfSm
-# 8GKyQ1OSDOPUErmNOb55KBKJmFxAoM1d3gyygGFC6kchrthsi5cI5MtmOKPFVhMn
-# CXCf+bYHq/9M1yZvTq1Un/kTmnZEKuHbByhDL7Q3mAvKdvTfGcpQHQCFSdt+OMde
-# 9PtG2LjFEShgITKh0xs0F6OaT1WmAcsiyY36FuE9dyqF7VCZDKzaz12krfamGcnz
-# 29SfRONTFEXEfPKJSAeDiyKcXZPUiFPt1A==
+# MSBDQQIQCcXM+LtmfXE3qsFZgAbLMTANBgkqhkiG9w0BAQEFAASCAgArm8Gn5+UF
+# q0RV+yImoLA2Yzh15/YFK6o5wJjrdtOr7KZGmRtusklfrgiM33vHXgOTxVJHjHys
+# zejDnGCtcDgSFmQyD1rFvLxzqIR3V85qQEV/+Lberh9wG0DdS7Nvji6AMYZCV2e3
+# sAFjz+TX/XYhg8OMUfRP38qXZ6W32xmTPprwV8TMHi+xl/+yGveYfZUwt79Abjsf
+# ldS5/BvQORNzvuLhjO4eUOyeJPjDy042SIE4uxyq8WfZNSHCK4Ej7Y0e60l+RKCA
+# AMDDTfcZ3QX1JunVy6GSyCn2aTWXWOPnNz1xIme+k+Xyg9kQAvZ/P4tMRAPUe82I
+# Nz1dkWx7UoFu9+STUuMywFFtwA6WLo30TgXPuP++msrnwh7eIhk1nO3u5D7MRFIJ
+# WrV0ktRGAPmSJaio4pzOrxUgb6+V2KfpGQeIf/Rt0JraYSCXKEAx06vjfm4/0h2b
+# YiLb6+mXtpsy0FTC3FxslEj0j9rjoC701+Pm+pQi/E7A+C2JALnMDEee7d5+V075
+# KXdMU8EutBt+sgTRUa689cQDCfraThI8BpNAG3UfYL1zTZNdE65CCYZtq5DUetTP
+# Y5Jf0aaRmUj8A7zOTyWdEJ8tdj3YjNWFvJrTibwSSSRluVQQ5rATFyV/hQ5Ebrj6
+# tKqHC+FutOthXau5GID/423HniId+NM/qw==
 # SIG # End signature block
