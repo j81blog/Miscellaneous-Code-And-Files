@@ -75,7 +75,7 @@
     File Name      : CWACLientDetection.ps1
     Author         : John Billekens Consultancy
     Prerequisite   : PowerShell V2.0
-    Version        : 2024.913.1000
+    Version        : 2024.1008.1745
     Copyright      : Copyright (c) 2024 John Billekens Consultancy
 
 #>
@@ -492,11 +492,21 @@ function Test-CWAMacVersion {
     #https://support.citrix.com/article/CTX675851
     #Affected:
     #Citrix Workspace app for Mac before 2402.10 <24.02.10
+
+    #CVE-2024-7549
+    #https://support.citrix.com/s/article/CTX691484-citrix-workspace-app-for-mac-security-bulletin-for-cve20247549
+    #Affected:
+    #Citrix Workspace app for Mac before 2409 <24.09.0.54
     switch ($version) {
         { $_ -lt [Version]"24.02.10" } {
             # Citrix Workspace app for Mac before 2402.10 - CTX675851
             $isCveImpacted = $true
             $cves += "CVE-2024-5027"
+        }
+        { $_ -lt [Version]"24.09.0.54" } {
+            # Citrix Workspace app for Mac before 2409 - CTX691484
+            $isCveImpacted = $true
+            $cves += "CVE-2024-7549"
         }
         { $_ -gt [Version]"22.03.0" -and $_ -lt [Version]"22.4.0" } {
             $isLtsrVersion = $true
@@ -904,8 +914,8 @@ if ($Test -eq $true) {
 # SIG # Begin signature block
 # MIIndQYJKoZIhvcNAQcCoIInZjCCJ2ICAQExDzANBglghkgBZQMEAgEFADB5Bgor
 # BgEEAYI3AgEEoGswaTA0BgorBgEEAYI3AgEeMCYCAwEAAAQQH8w7YFlLCE63JNLG
-# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCD8lQhKFWmnImmk
-# vE5OhnNb+nrRYKM7iY/k6LklHhL7cqCCICkwggXJMIIEsaADAgECAhAbtY8lKt8j
+# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCD4SOt99pOutc3f
+# xi07tOSAJwKud685/KH6E421AHQAqKCCICkwggXJMIIEsaADAgECAhAbtY8lKt8j
 # AEkoya49fu0nMA0GCSqGSIb3DQEBDAUAMH4xCzAJBgNVBAYTAlBMMSIwIAYDVQQK
 # ExlVbml6ZXRvIFRlY2hub2xvZ2llcyBTLkEuMScwJQYDVQQLEx5DZXJ0dW0gQ2Vy
 # dGlmaWNhdGlvbiBBdXRob3JpdHkxIjAgBgNVBAMTGUNlcnR1bSBUcnVzdGVkIE5l
@@ -1082,35 +1092,35 @@ if ($Test -eq $true) {
 # IDIwMjEgQ0ECEAgyT5232pFvY+TyozxeXVEwDQYJYIZIAWUDBAIBBQCggYQwGAYK
 # KwYBBAGCNwIBDDEKMAigAoAAoQKAADAZBgkqhkiG9w0BCQMxDAYKKwYBBAGCNwIB
 # BDAcBgorBgEEAYI3AgELMQ4wDAYKKwYBBAGCNwIBFTAvBgkqhkiG9w0BCQQxIgQg
-# b34qNexem5Guf4trbI/8E0j2xMt4n4hSHxBg/kyHhzQwDQYJKoZIhvcNAQEBBQAE
-# ggGAS10Pxgq1l+v50QGh69mKRkxfXjhp4CxEX/sQjL8q1/dR2WmfuLQ8gjwYZPnh
-# T0YaoUEfzXddjcUlrGi1siY5t8UaJRkRk1iDCOWnwJbVmXAa0dqntSvchhIYE5hV
-# PR38pFGF7KwZIzeuTPhR3kBx4lGdgrk8Ja3mZQuLmCoF5q9s4vqLNIULze2VpEzd
-# bm4devWofCcy2qQr9quBD9NCaO0LKpw0GCuEyIOvjZzFk8LNCFpcZsJU9ECdNpNB
-# 2wsm4yHgysDvU99rHC5bMOJ1y0QUkdppVGyXb7HqSwHFG6FwjBS0rYSzsxrHQY91
-# Dgaj5EoyggI9NhpsZL/0wRfBNKzrfIDnbrqdteOQV1T1j5aoIrNTUw1BfSXYgtsL
-# NGLC0jxEhNcjmXEdRH33uw0w99ZksQ67UAmgwRhEmTREltNuEBbL1nXXOhfrL1oG
-# LTfV80Cqn/SaeRm8YPb3dzpqfwCTrNVdQUaS/K86EQM0Q5g15TNjAVJbrenKLrGy
-# UuY2oYIEAjCCA/4GCSqGSIb3DQEJBjGCA+8wggPrAgEBMGowVjELMAkGA1UEBhMC
+# acGuFCYbpaxl83N9zrqHQRkJtkW7/ouBTzSuyFerVZYwDQYJKoZIhvcNAQEBBQAE
+# ggGAYqb5lq/JlJ+R3IAIU/MA3/wEdYzss+yqAEJMKD0BoeVb39WB9zFT1DsFg7eB
+# wMF4LgzJc5wRuCUFQscuZmuLZehaimywuno6Q1tGeohcTX1C0Due2eGwL4eVjPHe
+# mVtNI8awGnAEifj7yxSFrujuYW9a6ynv5xVN3ov+Eu46RAgOoumvedYaajasmhWp
+# Y5ugta68CCtdvYwnXxQX+DFVKadmY99eEXgHn4/PG3uF6dH+iXQhQOg8kceI1rh0
+# 610v8FdjlmWhTzCJrhNtuVPSH+BovofSA87l6Lt8rA9GjbcqKNiwdkp/EdUchIiR
+# qdnduNSa0/lLr3Ipq8mQiMXcgdZYR6LVO0TFvY/O5QXd3EqZO7Oj16nUVL7UDveH
+# yU3WHQJWTOoTgHeaIN1KiKFzww5f6NdqKenERh6WHnygMgiwAy603S3D94mvwt+z
+# bfM3ADFwrMvbBh9ngC2cSyI1eMSp1Y8cvowi8F64Z1mAVn7Ld0/xlQsAcD7ntVPI
+# GewEoYIEAjCCA/4GCSqGSIb3DQEJBjGCA+8wggPrAgEBMGowVjELMAkGA1UEBhMC
 # UEwxITAfBgNVBAoTGEFzc2VjbyBEYXRhIFN5c3RlbXMgUy5BLjEkMCIGA1UEAxMb
 # Q2VydHVtIFRpbWVzdGFtcGluZyAyMDIxIENBAhAJxcz4u2Z9cTeqwVmABssxMA0G
 # CWCGSAFlAwQCAgUAoIIBVjAaBgkqhkiG9w0BCQMxDQYLKoZIhvcNAQkQAQQwHAYJ
-# KoZIhvcNAQkFMQ8XDTI0MDkxMzA3NTMzNlowNwYLKoZIhvcNAQkQAi8xKDAmMCQw
+# KoZIhvcNAQkFMQ8XDTI0MTAwODE1NDQwOFowNwYLKoZIhvcNAQkQAi8xKDAmMCQw
 # IgQg6pVLsdBAtDFASNhln49hXYh0LMzgZ5LgVgJNSwA60xwwPwYJKoZIhvcNAQkE
-# MTIEMCXHLpf7loaUL8Rlay2UZXTpbPd8V/oMoU+1ki+NO9ni5tZEE3Y2RQUdIQhs
-# 89nOdTCBnwYLKoZIhvcNAQkQAgwxgY8wgYwwgYkwgYYEFA9PuFUe/9j23n9nJrQ8
+# MTIEMHzscVmPB9OUxIuPqxD284wUg/osAFlPibsUiE7hM0kXRJcpx/22oSeGO7rv
+# gfKlezCBnwYLKoZIhvcNAQkQAgwxgY8wgYwwgYkwgYYEFA9PuFUe/9j23n9nJrQ8
 # E9Bqped3MG4wWqRYMFYxCzAJBgNVBAYTAlBMMSEwHwYDVQQKExhBc3NlY28gRGF0
 # YSBTeXN0ZW1zIFMuQS4xJDAiBgNVBAMTG0NlcnR1bSBUaW1lc3RhbXBpbmcgMjAy
-# MSBDQQIQCcXM+LtmfXE3qsFZgAbLMTANBgkqhkiG9w0BAQEFAASCAgArm8Gn5+UF
-# q0RV+yImoLA2Yzh15/YFK6o5wJjrdtOr7KZGmRtusklfrgiM33vHXgOTxVJHjHys
-# zejDnGCtcDgSFmQyD1rFvLxzqIR3V85qQEV/+Lberh9wG0DdS7Nvji6AMYZCV2e3
-# sAFjz+TX/XYhg8OMUfRP38qXZ6W32xmTPprwV8TMHi+xl/+yGveYfZUwt79Abjsf
-# ldS5/BvQORNzvuLhjO4eUOyeJPjDy042SIE4uxyq8WfZNSHCK4Ej7Y0e60l+RKCA
-# AMDDTfcZ3QX1JunVy6GSyCn2aTWXWOPnNz1xIme+k+Xyg9kQAvZ/P4tMRAPUe82I
-# Nz1dkWx7UoFu9+STUuMywFFtwA6WLo30TgXPuP++msrnwh7eIhk1nO3u5D7MRFIJ
-# WrV0ktRGAPmSJaio4pzOrxUgb6+V2KfpGQeIf/Rt0JraYSCXKEAx06vjfm4/0h2b
-# YiLb6+mXtpsy0FTC3FxslEj0j9rjoC701+Pm+pQi/E7A+C2JALnMDEee7d5+V075
-# KXdMU8EutBt+sgTRUa689cQDCfraThI8BpNAG3UfYL1zTZNdE65CCYZtq5DUetTP
-# Y5Jf0aaRmUj8A7zOTyWdEJ8tdj3YjNWFvJrTibwSSSRluVQQ5rATFyV/hQ5Ebrj6
-# tKqHC+FutOthXau5GID/423HniId+NM/qw==
+# MSBDQQIQCcXM+LtmfXE3qsFZgAbLMTANBgkqhkiG9w0BAQEFAASCAgBp3fli8ANX
+# Wdc0a0d8PUqwCYVV43Gm65fEWo7ELamtNaa4LGdBY1tV5rYWuZpK+gxhsHdSjqtf
+# 4dr2XrpUITuT3lumelqDCWUOjonSrSwgx8WqIRIyNFvJweOq5/wUkHQGtNV2yZXE
+# wbT0Ya+1ulD4qsIBUdSYIMZkb0woh41w8hJVJR1Uc8GGJ+AcvMIM3DKpbiMwlItv
+# qCgF3rAAuit1JOtK4ZIG5NZzURTHCbZ2htmT+/DSgpgCI1P1e5C6u+gUvcOhYWeb
+# evL+EkjllQ92PcrW/GSwrpacjwCvMqAmTzWgC0O1KqLKBiXeJZUGV7jS2LpMD4gR
+# q56HpbN2ybKgxiukz+qIIjTs5J41ftx4Zl9sglJfzVnrljXWXvjkK0MtDWLVaJH3
+# pvpRVwfMIP44XQRo4d0BFy6IXmU49H34t0WHpYNuAfhm0TQ0VK/yQ01rI473sGZs
+# oE2CWveQ0HUJ8IdEuVFQ4aCbJDixxz4jbR4tL6vPuZak4cvi9A+4Jl/hi907frD2
+# mJ3zXqk8P7UNg7MP+QSy23uPY9JAuLT2ZW6eJq8JgZl7HSY+pu13Xy86yeKKfzsc
+# lmGTlU6hyea8TiGAnE5vrcBxih5q6JLu+uk9gwf/OQihVWRMaC+v1De8u53zBukh
+# LDIVARcACIVQLwWsW0gitNNSeC8NmniHvA==
 # SIG # End signature block
