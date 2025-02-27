@@ -1,0 +1,6 @@
+
+$fileExtensions = @("*.bicep")
+$files = Get-FileWithDeprecatedApiVersions -Path "c:\path\to\foder\to\scan" -Recurse -fileExtensions $fileExtensions
+$files | ForEach-Object {
+    Set-FileWithDeprecatedApiVersions -Path $_.Path -Verbose -FileExtensions $fileExtensions
+}
