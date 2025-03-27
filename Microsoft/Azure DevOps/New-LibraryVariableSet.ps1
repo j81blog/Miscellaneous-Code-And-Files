@@ -1,129 +1,140 @@
 <#
     .SYNOPSIS
-        Exports one or more Azure DevOps Library Variable Sets to JSON files.
+        Creates a new Azure DevOps library variable set (variable group) within a specified project.
 
     .DESCRIPTION
-        The Export-LibraryVariableSets function retrieves library variable sets from an Azure DevOps project using the provided organization URL and authentication token.
-        It filters the variable sets by name or ID based on the specified parameters and exports the result as JSON.
-        The output can be consolidated into a single file or split into separate files based on the value of the SplitInSeparateFiles switch.
-        If the specified output path does not exist, the function creates it before saving the files.
+        The New-LibraryVariableSet function retrieves an Azure DevOps project using the provided project name and organization,
+        then creates a variable group (library variable set) associated with that project. The function supports adding
+        a description and variables (as key-value pairs), and it authenticates using a Personal Access Token (PAT).
 
     .PARAMETER ProjectName
-        The name of the Azure DevOps project from which to retrieve variable sets.
+        The name of the Azure DevOps project in which the variable group will be created.
 
     .PARAMETER Organization
-        The Azure DevOps organization name used to build the API endpoint URL.
+        The Azure DevOps organization name.
 
     .PARAMETER PersonalAccessToken
-        The personal access token (PAT) for authenticating with the Azure DevOps REST API.
+        The Personal Access Token (PAT) used for authenticating to Azure DevOps. This parameter is also aliased as PAT.
 
-    .PARAMETER Path
-        The destination directory path where the exported JSON file(s) will be saved.
+    .PARAMETER Name
+        The name of the variable group to be created. Defaults to "*" if not specified.
 
-    .PARAMETER LibraryVariableSetName
-        A wildcard pattern to filter library variable sets by name. Defaults to "*" if not provided.
+    .PARAMETER Description
+        An optional description of the variable group.
 
-    .PARAMETER GroupId
-        The unique identifier for a specific variable group. This is mandatory when using the ID parameter set.
-
-    .PARAMETER SplitInSeparateFiles
-        When enabled, each matching library variable set is exported to its own JSON file; otherwise, all are exported to a single file.
+    .PARAMETER Variables
+        An optional hashtable that defines variables to be stored in the variable group. Each key-value pair in the hashtable
+        represents a variable name and its corresponding value.
 
     .EXAMPLE
-        Export-LibraryVariableSets -ProjectName "MyProject" -Organization "MyOrg" -PersonalAccessToken "yourPAT" -Path "C:\Exports" -LibraryVariableSetName "ReleaseVariables" -SplitInSeparateFiles
+        New-LibraryVariableSet -ProjectName "MyProject" -Organization "MyOrg" -PersonalAccessToken "yourPAT" `
+            -Name "MyVariableGroup" -Description "A variable group for my project" `
+            -Variables @{ Var1 = "Value1"; Var2 = "Value2" }
 
     .NOTES
-        Function : Export-LibraryVariableSets
+        Function : New-LibraryVariableSet
         Author   : John Billekens
         Copyright: Copyright (c) John Billekens Consultancy
         Version  : 1.0
 #>
-function Export-LibraryVariableSets {
-    [CmdletBinding(DefaultParameterSetName = "All")]
-    param(
-        [Parameter(Mandatory = $true, ParameterSetName = "All")]
-        [Parameter(Mandatory = $true, ParameterSetName = "ID")]
+function New-LibraryVariableSet {
+    <#
+    .NOTES
+        Function : Get-AzureDevOpsProject
+        Author   : John Billekens
+        Copyright: Copyright (c) John Billekens Consultancy
+        Version  : 1.0
+    #>
+
+    [CmdletBinding()]
+    Param (
+        [Parameter(Mandatory = $true)]
         [string]$ProjectName,
 
-        [Parameter(Mandatory = $true, ParameterSetName = "All")]
-        [Parameter(Mandatory = $true, ParameterSetName = "ID")]
+        [Parameter(Mandatory = $true)]
         [string]$Organization,
 
-        [Parameter(Mandatory = $true, ParameterSetName = "All")]
-        [Parameter(Mandatory = $true, ParameterSetName = "ID")]
+        [Parameter(Mandatory = $true)]
         [Alias("PAT")]
         [string]$PersonalAccessToken,
 
-        [Parameter(Mandatory = $true, ParameterSetName = "All")]
-        [Parameter(Mandatory = $true, ParameterSetName = "ID")]
-        [string]$Path,
-
-        [Parameter(Mandatory = $false, ParameterSetName = "All")]
+        [Parameter(Mandatory = $true)]
         [ValidateNotNullOrEmpty()]
-        [Alias("Name")]
-        [string]$LibraryVariableSetName = "*",
+        [string]$Name = "*",
 
-        [Parameter(Mandatory = $true, ParameterSetName = "ID")]
-        [Int32]$GroupId,
+        [Parameter(Mandatory = $false)]
+        [string]$Description,
 
-        [Parameter(Mandatory = $false, ParameterSetName = "All")]
-        [Switch]$SplitInSeparateFiles
+        [Parameter(Mandatory = $false)]
+        [hashtable]$Variables
     )
+    $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(":$PersonalAccessToken"))
 
-    Write-Verbose "Starting: Export-LibraryVariableSets"
-
-    Write-Verbose "Checking if $Path exists"
-    if (-not (Test-Path -Path $Path)) {
-        Write-Verbose "Creating $Path"
-        New-Item -Path $Path -ItemType Directory | Out-Null
-        Write-Verbose "Created $Path"
-    } else {
-        Write-Verbose "$Path already exists"
+    $uri = "https://dev.azure.com/$Organization/_apis/projects/$($ProjectName)?api-version=7.1"
+    $Headers = @{
+        Authorization  = "Basic {0}" -f $base64AuthInfo
+        "Content-Type" = "application/json"
     }
 
-    $uri = "https://dev.azure.com/$Organization/$ProjectName/_apis/distributedtask/variablegroups/$GroupId?api-version=7.1"
-    $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(":$personalAccessToken"))
     Write-Verbose "Retrieving LibraryVariableSets from $uri"
-    $response = Invoke-RestMethod -Uri $uri -Method Get -Headers @{Authorization = ("Basic {0}" -f $base64AuthInfo) }
-    Write-Verbose "Retrieved $($response.value.Count) LibraryVariableSets"
-    $results = $response.value | Where-Object { $_.name -like "$($LibraryVariableSetName)" }
-    Write-Verbose "Found $($results.Count) matching LibraryVariableSets"
 
-    if ($SplitInSeparateFiles) {
-        $results | ForEach-Object {
-            $fileName = Join-Path -Path $Path -ChildPath "$($_.name).json"
-            if (Test-Path -Path $fileName) {
-                Write-Verbose "$fileName already exists, appending timestamp"
-                $fileName = Join-Path -Path $Path -ChildPath "$($_.name)-$((Get-Date).ToString('yyyyMMddHHmmss')).json"
-            }
-            Write-Verbose "Exporting $($_.name) to $fileName"
-            $_ | ConvertTo-Json -Depth 10 | Set-Content -Path $fileName
+    # Fetch project details
+    try {
+        $project = Invoke-RestMethod -Uri $uri -Method Get -Headers $Headers
+        if (-not $project -or -not $project.id) {
+            $project = Invoke-RestMethod -Uri $uri -Method Get -Headers $Headers
+            return
         }
-    } elseif (-Not [String]::IsNullOrEmpty($LibraryVariableSetName)) {
-        $filename = Join-Path -Path $Path -ChildPath "$LibraryVariableSetName.json"
-        if (Test-Path -Path $filename) {
-            Write-Verbose "$filename already exists, appending timestamp"
-            $filename = Join-Path -Path $Path -ChildPath "$LibraryVariableSetName-$((Get-Date).ToString('yyyyMMddHHmmss')).json"
-        }
-        Write-Verbose "Exporting $LibraryVariableSetName to $filename"
-        $results | ConvertTo-Json -Depth 10 | Set-Content -Path $filename
-    } else {
-        $filename = Join-Path -Path $Path -ChildPath "LibraryVariableSets.json"
-        if (Test-Path -Path $filename) {
-            Write-Verbose "$filename already exists, appending timestamp"
-            $filename = Join-Path -Path $Path -ChildPath "LibraryVariableSets-$((Get-Date).ToString('yyyyMMddHHmmss')).json"
-        }
-        Write-Verbose "Exporting all LibraryVariableSets to $filename"
-        $results | ConvertTo-Json -Depth 10 | Set-Content -Path $filename
+    } catch {
+        Write-Error "Error retrieving project: $_"
+        return
     }
-    Write-Verbose "Finished: Export-LibraryVariableSets"
+
+    $uri = "https://dev.azure.com/$Organization/_apis/distributedtask/variablegroups?api-version=7.1"
+
+
+    $body = @{
+        name                           = $Name
+        description                    = "$Description"
+        providerData                   = $null
+        type                           = "Vsts"
+        variables                      = @{}
+        variableGroupProjectReferences = @(@{
+            description      = $Description
+            name             = $Name
+            projectReference = @{
+                id   = $project.id
+                name = $project.name
+            }
+        })
+    }
+    if ($Variables) {
+        $Variables.GetEnumerator() | ForEach-Object {
+            $body.variables[$_.Name] = @{
+                value    = $_.Value
+                isSecret = $false
+            }
+        }
+    }
+    # Convert body to JSON
+    $jsonBody = $body | ConvertTo-Json -Depth 10
+
+    Write-Verbose "Creating LibraryVariableSet $Name with body: $jsonBody"
+
+    # Make API request
+    try {
+        $response = Invoke-RestMethod -Uri $uri -Method Post -Headers $Headers -Body $jsonBody
+        return $response
+    } catch {
+        Write-Error "Error creating variable group: $_"
+    }
 }
 
 # SIG # Begin signature block
 # MIInZQYJKoZIhvcNAQcCoIInVjCCJ1ICAQExDzANBglghkgBZQMEAgEFADB5Bgor
 # BgEEAYI3AgEEoGswaTA0BgorBgEEAYI3AgEeMCYCAwEAAAQQH8w7YFlLCE63JNLG
-# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCDaoXysMas30fjW
-# jXRSGtR1Hwy5Lq/J/lOvlTxv7FXRIaCCIBcwggXJMIIEsaADAgECAhAbtY8lKt8j
+# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCC9lAHONnDIawF0
+# e5Rv4ikBBunYvqdWsp9qfAOGCPNgCqCCIBcwggXJMIIEsaADAgECAhAbtY8lKt8j
 # AEkoya49fu0nMA0GCSqGSIb3DQEBDAUAMH4xCzAJBgNVBAYTAlBMMSIwIAYDVQQK
 # ExlVbml6ZXRvIFRlY2hub2xvZ2llcyBTLkEuMScwJQYDVQQLEx5DZXJ0dW0gQ2Vy
 # dGlmaWNhdGlvbiBBdXRob3JpdHkxIjAgBgNVBAMTGUNlcnR1bSBUcnVzdGVkIE5l
@@ -299,36 +310,36 @@ function Export-LibraryVariableSets {
 # MSQwIgYDVQQDExtDZXJ0dW0gQ29kZSBTaWduaW5nIDIwMjEgQ0ECEAgyT5232pFv
 # Y+TyozxeXVEwDQYJYIZIAWUDBAIBBQCggYQwGAYKKwYBBAGCNwIBDDEKMAigAoAA
 # oQKAADAZBgkqhkiG9w0BCQMxDAYKKwYBBAGCNwIBBDAcBgorBgEEAYI3AgELMQ4w
-# DAYKKwYBBAGCNwIBFTAvBgkqhkiG9w0BCQQxIgQga8a9uy3ylTdLPvhEcMAmTk4B
-# rohhbZkYl+SB2gnGVtAwDQYJKoZIhvcNAQEBBQAEggGAhM2MEJRZRzE9qKw2m5VY
-# NIkKqHPKGIXG3sYBbWj9EJD8xByaL9Z4NGRI0qQKq9pRrfwgsebXj9Hq8ZBWmnsH
-# unE2Tby8WyTwl6qSFiuo/m3NV+MuZzfDSr2iWEVtSZwTv11HTsv8EphTXcx7c6jU
-# x+0ItfoN1GHO7aUdePdGMV6Bebd45l4ht6KR2qSEPbCMzaGoJbxjgGz6xb3j4NpQ
-# iDumOTiHMPt1MZqRm4KSSHbBWML3+sv6gueA+5gChq4/VeEM6VvJXHD8Q9jGkMFA
-# AseaxB1A16e6LNkRx+70iiAcSz+aA5bIfnTcsh628aA4cVhjwpfq1FxQHanKoHxX
-# 77wR5wAF+Iz5TYSVIZt9NBIbaMTDQA5o/ZWrJsA9XOB/GSf1vGOgAOq/NbA6KXcQ
-# PLR8Q0Db1lqI41GplNhUrwYAPsseYhqHhJzsRT0ciDx0FjlMKlsleadv7qWetwI4
-# Abdln2x3r9aHR3Tqz7U6b6BwJUOBiIFnfh0fxM3QtHv/oYIEBDCCBAAGCSqGSIb3
+# DAYKKwYBBAGCNwIBFTAvBgkqhkiG9w0BCQQxIgQgwJWufuLpt2fgVNnQGmz4bOo0
+# EkjC+QDwL/EUFcTw4kgwDQYJKoZIhvcNAQEBBQAEggGAxemh0QO/G21GZhkweTNK
+# bcU/wibWqxOqHKlYrQtAvEIXaWSRwnndj4zWyAN6SHDEg/mrXRx94JAc617ABMmj
+# 9QLz3q7MgUCg2WCFCqHT1+16LRd8dGV6dMOgPTLWWXMNNEaol8ZvEkwt2t4Ho3lA
+# ExZ57J/Fc3SsTSUfCHctP97gZ0CS1e5xXhO1Dv8Kiez8tsC9MYRGQ5A7NR9uYwxH
+# cu/SHvgXHypMYADWpX8W5wR05tiJHH4DkiGCeGg/E2mqPEfc4ZF+0096lBE8UHQt
+# BV3Hwyz7uW5m9nuUPHVgCtOzHGTYNYi+MZDEdwjvAQQ0Jlix92S7ZM/I5nu+MN/1
+# SzwtT4VnF0e9XfiHgFBrXQibC9PzkuVf65sWHdpak/0EQDJO2QUKKZhCgyj/MA7k
+# SbDDCaXXWQ8SX2Kisx+fsbmm8g2yFPpNrbMMIWcYJbk/nzcce448+TqPXVIZ4wnK
+# 16l0ycGY+iw1X08yjEpec5BOrS8TywUz/LpSmDhY5sz2oYIEBDCCBAAGCSqGSIb3
 # DQEJBjGCA/EwggPtAgEBMGswVjELMAkGA1UEBhMCUEwxITAfBgNVBAoTGEFzc2Vj
 # byBEYXRhIFN5c3RlbXMgUy5BLjEkMCIGA1UEAxMbQ2VydHVtIFRpbWVzdGFtcGlu
 # ZyAyMDIxIENBAhEAnpwE9lWotKcCbUmMbHiNqjANBglghkgBZQMEAgIFAKCCAVcw
 # GgYJKoZIhvcNAQkDMQ0GCyqGSIb3DQEJEAEEMBwGCSqGSIb3DQEJBTEPFw0yNTAz
-# MjcyMTM1NTdaMDcGCyqGSIb3DQEJEAIvMSgwJjAkMCIEIM+h3DWd7SvDy4kPojDl
-# 2vd7VA8abisj3c8XVOGM+qDVMD8GCSqGSIb3DQEJBDEyBDAVsdSSSPADUOXD61on
-# MosEYfrk/2Ng0QgVMsarwdCQkzJiT7cM/8bCs/8phDrphBgwgaAGCyqGSIb3DQEJ
+# MjcyMTM2MDFaMDcGCyqGSIb3DQEJEAIvMSgwJjAkMCIEIM+h3DWd7SvDy4kPojDl
+# 2vd7VA8abisj3c8XVOGM+qDVMD8GCSqGSIb3DQEJBDEyBDDMyd4ePquTrpdxmveY
+# qnLbD9r57o68UpChjNMJCmcTAh4sbmfDDq/Yskzwkh+vUvEwgaAGCyqGSIb3DQEJ
 # EAIMMYGQMIGNMIGKMIGHBBTDJbibF/zFAmBhzitxe0UH3ZxqajBvMFqkWDBWMQsw
 # CQYDVQQGEwJQTDEhMB8GA1UEChMYQXNzZWNvIERhdGEgU3lzdGVtcyBTLkEuMSQw
 # IgYDVQQDExtDZXJ0dW0gVGltZXN0YW1waW5nIDIwMjEgQ0ECEQCenAT2Vai0pwJt
-# SYxseI2qMA0GCSqGSIb3DQEBAQUABIICAHbijqBI3g5NdpkAjRT9sEXpsD3Y6H2q
-# CetCm3cYLeNhw4rhXR3fxsKz7RkZUHPaPp95m6Ut0l7Cl4QNfCsUEg5PBUWbvQ8g
-# q6HPBwGSy+GS50ptDKtPEEfmbCo0klNnwYWjTGwxu7Ow0M3eg+R/4VHGRwf7p+Dw
-# WfFfuD5TSs5/i6MT/ZlwfCVIt62rn4rgr3ACwa26uQCJOYW7tltzynQUvxZnXx/y
-# 5tP1OQyhsc0U+a7tHJJYZ8qLKYAxOBZ/fwVkyixppbNGlLsUP+KhCBSc51yizlLg
-# KVk2yPpRIZwW7VyadgsSoAZWmSYttkldXZWLNH1oboUElnkjQ0elNPPbms9YzBtV
-# ToVwo4GK1SLU8BXjqAsFoBS0K6k17E5QnROoeZ2tI9CNz2aB8vb5JbTptpagGc6n
-# 5CqEdtpj65m8pOD/QMmUIeUgmAiqEGP8YMLKCsvaGr1aUo/YoPscY5ZUEM6rSlmT
-# sWGPi+f4mnO6eVKgGO8nDiHwMNAghtHnBWgqJYv2gyNAVkAX+kclFmcAWCuEssBZ
-# u4gSuqptSPJT7J25qV6oNjqN6X1W5s5VNWH9x1Xohba8o+DNPj9vvtB0PezltK+E
-# w9vsvRgfTWCJQ7VYvIdnz0A0Hcv5SS3zNpDdnCkH6a9nEsVbSWE+j2SGEZp/IZEk
-# vq9LNfgb1qeV
+# SYxseI2qMA0GCSqGSIb3DQEBAQUABIICAC14ZKvNBO9fvR+5ilM2Sgqxtmc/8686
+# PXyIlHDW49P6h3I388ij6mGZYkIIsRqE46VmUSR2iAFj1/WT5EJ6ouRbQtryUQVl
+# 5xVW1UqtxJTOMqKx0NXUQL9/c8CaqlkdrDl7Zfc3iwcdcgmWVlp+BY+La5AFbvmN
+# f8ZKmaVmbosuA1axeQGrGermCl9NZWmVqvQ9utBRU9NK6GA5emWI6NuCSfepzSsQ
+# t4v+qoAlV9qDiwhta7/7E5u6Nt+R1XTJARpdBt0OL1xPBaThdoOwTY0spT/71npm
+# cl+fx+o8cI9U+BPD7yNl/QMmt+WBmOigQ11EbBYcQTqvfRZG6AK6uOD/EEXD0UbY
+# Uz5TkPqKQm4q4owypYyoSp3q8X3Z0EaT73L6BTKQHuafgTQT2i23Qr+fDKTG/GJB
+# +k3cGb2UFJPgD/7HGQoJEe53Itb+hcF+Mi3euqJiG+0qM+HN/4lnijvMZp7c7gWO
+# s86fJRENyH9ekbV5OuqIfuy0HakBDa9rfaXLHxNTiEBUOp7Yur0jsTchIPa4qC9i
+# ImRf6vraYTCjRyF8mGdHlob8tOQM9g7AIZx3WbzbwUpllc1U9P8Eo/SR4F8FqoNR
+# +mUYUq7zRGOuLKAQz2Ey9kYjI40CWoGLtl/2bs35zCqBjp983FYbY6NQOLDfhiQS
+# yZBSHsLAI5IN
 # SIG # End signature block
