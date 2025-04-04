@@ -2,15 +2,15 @@
 
 ## Layout
 | Lang | Description |
-|-|-|
+|:-----|:------------|
 | EN | Layout |
 | NL | Indeling |
 
-| Data | Type | Description |
-|-|-|-|
-| 0 | DWORD | Default / Standaard |
-| 1 | DWORD | More pins / Meer vastgemaakte items |
-| 2 | DWORD | More recommendations / Meer aanbevelingen |
+| Type  | Data | Description                           |
+|:------|:-----|:--------------------------------------|
+| DWORD | 0    | Default / Standaard                   |
+| DWORD | 1    | More pins / Meer vastgemaakte items   |
+| DWORD | 2    | More recommendations / Meer aanbevelingen |
 
 Default value:
 ```Registry
@@ -20,14 +20,14 @@ Default value:
 
 ## Show recently added apps
 | Lang | Description |
-|-|-|
+|:-----|:------------|
 | EN | Show recently added apps |
 | NL | Recent toegevoegde apps weergeven |
 
-| Data | Type | Description |
-|-|-|-|
-| 0 | DWORD | Disabled |
-| 1 | DWORD | Enabled |
+| Type  | Data | Description |
+|:------|:-----|:------------|
+| DWORD | 0    | Disabled    |
+| DWORD | 1    | Enabled     |
 
 Default value:
 ```Registry
@@ -37,14 +37,14 @@ Default value:
 
 ## Show most used apps
 | Lang | Description |
-|-|-|
+|:-----|:------------|
 | EN | Show most used apps |
 | NL | Meestgebruikte apps weergeven |
 
-| Data | Type | Description |
-|-|-|-|
-| 0 | DWORD | Disabled | Yes |
-| 1 | DWORD | Enabled | No |
+| Type  | Data | Description      |
+|:------|:-----|:-----------------|
+| DWORD | 0    | Disabled (Yes)   |
+| DWORD | 1    | Enabled (No)     |
 
 Default value:
 ```Registry
@@ -54,14 +54,14 @@ Default value:
 
 ## Show recommended files in Start, recent files in File Explorer, and items in Jump Lists
 | Lang | Description |
-|-|-|
+|:-----|:------------|
 | EN | Show recommended files in Start, recent files in File Explorer, and items in Jump Lists |
 | NL | Aanbevolen bestanden in Start, recente bestanden in Verkenner en items in jumplists |
 
-| Data | Type | Description |
-|-|-|-|
-| 0 | DWORD | Disabled |
-| 1 | DWORD | Enabled |
+| Type  | Data | Description |
+|:------|:-----|:------------|
+| DWORD | 0    | Disabled     |
+| DWORD | 1    | Enabled      |
 
 Default value:
 ```Registry
@@ -71,14 +71,14 @@ Default value:
 
 ## Show recommendations for tips, shortcuts, new apps , and more
 | Lang | Description |
-|-|-|
+|:-----|:------------|
 | EN | Show recommendations for tips, shortcuts, new apps , and more |
 | NL | Aanbevelingen voor tips, snelkoppelingen, nieuwe apps en meer weergeven |
 
-| Data | Type | Description |
-|-|-|-|
-| 0 | DWORD | Disabled |
-| 1 | DWORD | Enabled |
+| Type  | Data | Description |
+|:------|:-----|:------------|
+| DWORD | 0    | Disabled    |
+| DWORD | 1    | Enabled     |
 
 Default value:
 ```Registry
@@ -88,14 +88,14 @@ Default value:
 
 ## Show account-related notifications
 | Lang | Description |
-|-|-|
+|:-----|:------------|
 | EN | Show account-related notifications |
 | NL | Geef account gerelateerde meldingen weer |
 
-| Data | Type | Description |
-|-|-|-|
-| 0 | DWORD | Disabled |
-| 1 | DWORD | Enabled |
+| Type  | Data | Description |
+|:------|:-----|:------------|
+| DWORD | 0    | Disabled    |
+| DWORD | 1    | Enabled     |
 
 Default value:
 ```Registry
