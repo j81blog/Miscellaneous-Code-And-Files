@@ -41,10 +41,10 @@ Default value:
 | EN | Show most used apps |
 | NL | Meestgebruikte apps weergeven |
 
-| Type  | Data | Description      |
-|:------|:-----|:-----------------|
-| DWORD | 0    | Disabled (Yes)   |
-| DWORD | 1    | Enabled (No)     |
+| Type  | Data | Description |
+|:------|:-----|:------------|
+| DWORD | 0    | Disabled    |
+| DWORD | 1    | Enabled     |
 
 Default value:
 ```Registry
@@ -60,8 +60,8 @@ Default value:
 
 | Type  | Data | Description |
 |:------|:-----|:------------|
-| DWORD | 0    | Disabled     |
-| DWORD | 1    | Enabled      |
+| DWORD | 0    | Disabled    |
+| DWORD | 1    | Enabled     |
 
 Default value:
 ```Registry
