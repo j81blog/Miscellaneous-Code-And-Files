@@ -167,7 +167,7 @@ if ($PSCmdlet.ParameterSetName -eq "JSON") {
             $jsonParams = Get-Content -Path "$JSONFilename" | ConvertFrom-Json
         } catch {
             Write-Warning "Failed to load the JSON file, not formatted properly? Error: $($_.Exception.Message)"
-            Exit 1
+            exit 1
         }
         Write-Verbose "JSON file loaded, using the parameters from the JSON file"
         $MessageLogo = $jsonParams.MessageLogo
@@ -182,11 +182,11 @@ if ($PSCmdlet.ParameterSetName -eq "JSON") {
         Write-Verbose "RunLocal: $RunLocal"
     } else {
         Write-Warning "The JSON file does not exist"
-        Exit 1
+        exit 1
     }
 
 }
-if (-Not [String]::IsNullOrEmpty($MessageLogo)) {
+if (-not [String]::IsNullOrEmpty($MessageLogo)) {
     if ($MessageLogo -like ".\*") {
         $MessageLogo = "$($MessageLogo)".Replace(".\", "$($PSScriptRoot)\")
         Write-Verbose "Logo file path updated, new path: $MessageLogo"
@@ -260,8 +260,6 @@ function Test-CWAWindowsVersion {
     #Citrix Workspace app for Windows versions before 2402 LTSR CU2 Hotfix 1 <24.2.2001.3
     #Citrix Workspace app for Windows versions before 2402 LTSR CU3 Hotfix 1 >=24.2.3000 <24.2.3001.9
 
-
-
     switch ($version) {
         { $_ -ge [Version]"19.13.0" -and $_ -lt [Version]"21.5.0" } {
             # Citrix Workspace App versions before 2105 - CTX307794
@@ -278,7 +276,7 @@ function Test-CWAWindowsVersion {
             $isCveImpacted = $true
             $cves += "CVE-2023-24483"
             $cves += "CVE-2023-24484"
-            $cves += "CVE-2023-24485"
+            $cves += "CVE-2023-24485"s
         }
         { $_ -ge [Version]"19.13.0" -and $_ -lt [Version]"22.03.2000" } {
             # Citrix Workspace App 2203 LTSR before CU2 - CTX477616 / CTX477617
@@ -336,12 +334,12 @@ function Test-CWAWindowsVersion {
             $isCveImpacted = $true
             $cves += "CVE-2025-4879"
         }
-        {  $_ -lt [Version]"24.2.2001.3" } {
+        { $_ -lt [Version]"24.2.2001.3" } {
             # Citrix Workspace app for Windows versions before 2402 LTSR CU2 Hotfix 1 - CTX694718
             $isCveImpacted = $true
             $cves += "CVE-2025-4879"
         }
-        {  $_ -ge [Version]"24.2.3000" -and  $_ -lt [Version]"24.2.3001.9" } {
+        { $_ -ge [Version]"24.2.3000" -and $_ -lt [Version]"24.2.3001.9" } {
             # Citrix Workspace app for Windows versions before 2402 LTSR CU3 Hotfix 1 - CTX694718
             $isCveImpacted = $true
             $cves += "CVE-2025-4879"
@@ -664,7 +662,7 @@ function Get-LocalWindowsCWAVersion {
         'HKLM:\SOFTWARE\Citrix\InstallDetect',
         'HKLM:\SOFTWARE\WOW6432Node\Citrix\InstallDetect'
     )
-    ForEach ($regPath in $regPaths) {
+    foreach ($regPath in $regPaths) {
         if (Test-Path -Path $regPath) {
             $version = Get-ChildItem -Path $regPath | Get-ItemProperty | Select-Object -Property DisplayVersion | Select-Object -ExpandProperty DisplayVersion
             break
@@ -717,7 +715,7 @@ function Show-MessageToUser {
     $stackPanel.Margin = New-Object -TypeName System.Windows.Thickness -ArgumentList 10
     $window.Content = $stackPanel
 
-    if (-Not [String]::IsNullOrEmpty($Logo) -and (Test-Path -Path $Logo)) {
+    if (-not [String]::IsNullOrEmpty($Logo) -and (Test-Path -Path $Logo)) {
         Write-Verbose "Create an image control for the logo"
         $image = New-Object -TypeName System.Windows.Controls.Image
         $image.Source = New-Object -TypeName System.Windows.Media.Imaging.BitmapImage -ArgumentList $Logo
@@ -937,8 +935,8 @@ if ($Test -eq $true) {
 # SIG # Begin signature block
 # MIImdwYJKoZIhvcNAQcCoIImaDCCJmQCAQExDzANBglghkgBZQMEAgEFADB5Bgor
 # BgEEAYI3AgEEoGswaTA0BgorBgEEAYI3AgEeMCYCAwEAAAQQH8w7YFlLCE63JNLG
-# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCDQyacWHKi1zPin
-# zI69aWPU3IwacdUonYh7Jm6advhUxKCCIAowggYUMIID/KADAgECAhB6I67aU2mW
+# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCAXdnEgkya/ODO3
+# 1xSQjY1ChQhh981oYE1+aQnKT0ByY6CCIAowggYUMIID/KADAgECAhB6I67aU2mW
 # D5HIPlz0x+M/MA0GCSqGSIb3DQEBDAUAMFcxCzAJBgNVBAYTAkdCMRgwFgYDVQQK
 # Ew9TZWN0aWdvIExpbWl0ZWQxLjAsBgNVBAMTJVNlY3RpZ28gUHVibGljIFRpbWUg
 # U3RhbXBpbmcgUm9vdCBSNDYwHhcNMjEwMzIyMDAwMDAwWhcNMzYwMzIxMjM1OTU5
@@ -1114,31 +1112,31 @@ if ($Test -eq $true) {
 # cnR1bSBDb2RlIFNpZ25pbmcgMjAyMSBDQQIQCDJPnbfakW9j5PKjPF5dUTANBglg
 # hkgBZQMEAgEFAKCBhDAYBgorBgEEAYI3AgEMMQowCKACgAChAoAAMBkGCSqGSIb3
 # DQEJAzEMBgorBgEEAYI3AgEEMBwGCisGAQQBgjcCAQsxDjAMBgorBgEEAYI3AgEV
-# MC8GCSqGSIb3DQEJBDEiBCBN7Dahx8E/Bj3hkCH+EyUueRp61OpSQTdGGXL6pjvi
-# oDANBgkqhkiG9w0BAQEFAASCAYAHqpeRuYN8YZMkaB84zzIIYXzEsAZJb9vEDWNI
-# W107LJdxgCGN3UsRlmjUvhRSggiL3aegbDvXykVX6aFp2WXhjanM+2a4AUDQeYn6
-# GWdbNIqRxEMDeQbiFNc1pd9Gq51TawpAWgoOBC9iDNUBEU8wQr9lXS0/ZnvGMWkJ
-# 2vTvZNcx+gf+JyylFAo5+XknXqLQDyN6dF5z5PtwoRAKAmZr40Woq3xcJxlNxrYG
-# vEfCZoswswYn3C+NuLuXGBAKoBiC1XJq3xPh7z6HSklixgeWRdFIhlQPgpt3GlYn
-# PYmjPJVKFAAk1a3kMzS8BIEc5wSmB1ntBZ4AdPVyyMnayToZAa+zXCfuLOKSlP3A
-# yGMta5f3ckoAQLHDIJ0sIG9AGu8W3ufUbo1EOzbpOf0R1rKlqtpd8TVqjzuHFAGK
-# pFlnOFfF9Xyt5vowvlCXxsR77YBMqIfJAr6URt7xW4ZR1s1JUlCzn5KqM/DeaKXK
-# maKDsMWnt/ELhZF/MC3GI6DbQk6hggMjMIIDHwYJKoZIhvcNAQkGMYIDEDCCAwwC
+# MC8GCSqGSIb3DQEJBDEiBCBXW5o+ZNMJX3WXyqn1go7RWScoh8M8goSNL/rmf+h4
+# czANBgkqhkiG9w0BAQEFAASCAYB7K11OVS4wEvAPsS1SvKlj7D/o0kxS+Hi/z2+A
+# GLyXcfnkfKFcWPcTmIbdVGPYj8g2cMxiru5fJOrKjDy7wQIQbXYymBTs2ImDdsHS
+# qoy+DR3R3L/rdmmhdNdeBO95yKT6Wil0YnchXczxvhu496ZunBn7x8uz4KnojHCG
+# bF/syIwTd6qX5zOyEuZQ80NPYDQZHiF8XQv7kUzVoNAx8uxyNYcLOcdGqYx8TR5/
+# 4QD8A/PhQEsNdzMtd/DAiE+NyF7st5bPR1/WLE3mDbSZOxxo7x5pW1aHJYy5wYMT
+# NI7CVGfC0EBDuRdk2OoYNn6/Yn5KSgpcGMxFIjPcG160lCb3ymPbCxg+d2+jZqc0
+# 2xHIz3H5PZKalCljAoWHTJgGu8KtvQtghgTBwXAXVPrsmXY3P8DMwsKYIt712/7R
+# j6DITrcMTSo1VtQftJKeYsA9iJGLGEuHnDHYvr4IgSq9stpyoseGfe5lHbeHfMFg
+# vIBkDcSF5Uke5VcPEWtMcYMgi9OhggMjMIIDHwYJKoZIhvcNAQkGMYIDEDCCAwwC
 # AQEwajBVMQswCQYDVQQGEwJHQjEYMBYGA1UEChMPU2VjdGlnbyBMaW1pdGVkMSww
 # KgYDVQQDEyNTZWN0aWdvIFB1YmxpYyBUaW1lIFN0YW1waW5nIENBIFIzNgIRAKQp
 # O24e3denNAiHrXpOtyQwDQYJYIZIAWUDBAICBQCgeTAYBgkqhkiG9w0BCQMxCwYJ
-# KoZIhvcNAQcBMBwGCSqGSIb3DQEJBTEPFw0yNTA3MDQxMzQ2MjBaMD8GCSqGSIb3
-# DQEJBDEyBDAWa3gFPcibduYUzmXQPAjWIfiwzw3bC5c4I4DDDMl1YudcyOu/QWCX
-# 8PvkqxLcB4UwDQYJKoZIhvcNAQEBBQAEggIAYcotOFtcaZKqAkaPIN1e0VHZSTG1
-# cHmre8qy7soc3TR+qlsdxY8E9iPlXyXriwoPglcRb5QTD5OrKEzccB4WpEr3uWsh
-# 7gaxroQ+9fQOaxTJw34ujjytw8oF7KpZZCWBoPCwM+6oE2B8bAMOrzrPDZuOl+ge
-# Ar1LYUshwDSHjo1UbuHke6rGHwaJPEMbkX5izGyd4s+9YSJofizb172NRzV7Bi36
-# w+IZ1pesjNOJHPJhtPkr1huLKH7XDzfInBQjZ+rU7c/oYePDZqTpiOFkYh5VnAwP
-# +mubrKFBNr8Mk7Nct4Bh8cJ5dg12gQWOmzERUMxuJFBQJjBGVbcwS8SjgscNabth
-# 4uWVjITJGW5GnQgwYOlPwNk4L3xlkB01Zba5TTv6uNFwT8Io5iqL9EO/Mx3bvMBH
-# cvm5aIwVVerjFvqAO7qCxZgmqym9H4pTmZVS+YLLtfdpFkcFDLM9oYqmYcEG2GWH
-# /cRr8bmNTzw4Ncf/uEDWSpmt/N9cQ63KPLWWMFF635oHZ/uR2RX77FvaROWvk5ic
-# /hK9jA+BDxxImvx0khlmUP4BofO4EL/yxnGA8WrCUZaEVAIRUxDTpnEAiOhRZn8L
-# GO2PCqdLC6QwfKMdYsoudSZm+zZhqDLA3k9WYL8YSc/DFYx6dd6H3+myv3AM0ZxK
-# tmLrHfW9Xydz5R0=
+# KoZIhvcNAQcBMBwGCSqGSIb3DQEJBTEPFw0yNTA3MDQxNDA3NDBaMD8GCSqGSIb3
+# DQEJBDEyBDA1pfMANXEF5YkNZJIOckPqg9jdn1hLpSws+bYyLV+mScCS2VbZ/HxY
+# RmXPjFJ/lm0wDQYJKoZIhvcNAQEBBQAEggIApunGydGfVSUPcNck2MvM1X1A6Y3b
+# ZArC+lgBx7pCxb9ClmhpLNhNDFiSSZBJBL9ZLnqETYCV0sGS4qPIj8meK5WiHxmq
+# vTjj+dC+zynzfPK4uKPiPcck4B0BaJ1sNEnfbaeokQj4h6nPOlRGYnxroRFVNGg6
+# qg0HY1avheQzPn+KkmiGjLXjZoSmEUvcgCb+qJQYhFb0wMhS9IPTOpjq7ijBrpGN
+# 9DqKx3JWEO+QwMp58xRa6e7/6qXnU4igQtrpzxBBNqS5WZpeN3oWXXJrdew37OXo
+# wD2BZM0U5+XF6yZvbM0ySI0pff31X0kUs5XY0bJ2itpSc38HKJAplBLbWfat+7vU
+# YhyB2zRyaSdj55hTJQ0EJzvdfIfry2btQaqYhYUGfcvzKY51KspH3rAk8GybsZ1H
+# nOO+nCA9qQCBsohxRugv1KXgiXBPKetgqZBx0KukuAnJdoxMgvoUEifnAPXNDQqM
+# EnOmWdY/8xAbMXWT2ywenRH2jnaLzs9dOkSgI51ES4swmUl6VUjJYUPIApjYLmSL
+# cUIZNezQscw4AHHN2dNFkDb9xKHIA/SzVx7u+eknIRTaWzmhzvWqlqVhfsP+qG8K
+# uMnqQ6Tn4Hd1UyelbqcmD+hw2PvHTW568rMAwCgEXZB8BcfsoWOsl7MWkNnm4PlP
+# MnicuwAv/MUZqEo=
 # SIG # End signature block
