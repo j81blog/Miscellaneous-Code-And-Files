@@ -1,0 +1,35 @@
+<# Execute on print server #>
+$printerDrivers = Get-Printer | Select-Object -ExpandProperty DriverName -Unique | Sort-Object
+$printerShares = @()
+foreach ($driver in $printerDrivers) {
+    $printerName = "Test-$driver"
+    try {
+        Add-Printer -DriverName $driver -Shared -ShareName $printerName -PortName "FILE:" -Name $printerName
+        $printerShares += [PSCustomObject]@{
+            DriverName  = $driver
+            ShareName   = $printerName
+            PrintServer = "${env:COMPUTERNAME}.${Env:USERDNSDOMAIN}"
+        }
+        Write-Host "Successfully created printer share for driver '$driver' with share name '$printerName'."
+    } catch {
+        Write-Error "Failed to create printer share for driver '$driver': $_"
+        continue
+    }
+}
+$printerShares | ConvertTo-Json | clip.exe
+
+<# Execute on client #>
+$printerShares = @"
+<# Paste the JSON clipboard data here #>
+"@ | ConvertFrom-Json
+
+$printerShares | ForEach-Object {
+    #connect to each printer share
+    $printerShare = $_
+    try {
+        Add-Printer -ConnectionName "\\$($printerShare.PrintServer)\$($printerShare.ShareName)"
+        Write-Host "Successfully connected to printer share '$($printerShare.ShareName)' on server '$($printerShare.PrintServer)'."
+    } catch {
+        Write-Error "Failed to connect to printer share '$($printerShare.ShareName)' on server '$($printerShare.PrintServer)': $_"
+    }
+}
