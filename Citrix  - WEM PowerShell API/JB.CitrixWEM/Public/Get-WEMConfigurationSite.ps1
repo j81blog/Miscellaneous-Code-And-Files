@@ -39,7 +39,6 @@ function Get-WEMConfigurationSite {
         # Get connection details. Throws an error if not connected.
         $Connection = Get-WemApiConnection
 
-
         $UriPath = "services/wem/sites"
         $QueryParts = [System.Collections.Generic.List[string]]::new()
 
@@ -55,7 +54,7 @@ function Get-WEMConfigurationSite {
             $UriPath += "?$($QueryParts -join '&')"
         }
 
-        $Result = Invoke-WemApiRequest -UriPath $UriPath -Method "GET" -BearerToken $Connection.BearerToken -CustomerId $Connection.CustomerId
+        $Result = Invoke-WemApiRequest -UriPath $UriPath -Method "GET" -Connection $Connection
         return $Result.Items
     } catch {
         Write-Error "Failed to retrieve WEM Configuration Sets: $_"

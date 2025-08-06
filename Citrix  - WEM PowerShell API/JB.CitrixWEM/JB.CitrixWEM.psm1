@@ -18,4 +18,7 @@ $Script:WemApiConnection = [PSCustomObject]@{
     CustomerId  = ""
     BearerToken = ""
     BaseUrl     = "https://eu-api-webconsole.wem.cloud.com"
+    UriPath     = "services/wem/forward"
+    WebSession  = $null
+    IsOnPrem    = $false
 }

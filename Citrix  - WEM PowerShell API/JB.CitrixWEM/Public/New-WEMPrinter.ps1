@@ -5,10 +5,6 @@ function New-WEMPrinter {
     Creates a new network printer in Citrix WEM.
 .DESCRIPTION
     This function adds a new network printer action to a specified WEM Configuration Set (Site).
-.PARAMETER BearerToken
-    The authentication bearer token for the API session.
-.PARAMETER CustomerId
-    The Citrix Customer ID.
 .PARAMETER SiteId
     The ID of the WEM Configuration Set (Site) where the printer will be created.
 .PARAMETER PrinterPath
@@ -33,15 +29,6 @@ function New-WEMPrinter {
     [CmdletBinding(SupportsShouldProcess = $true)]
     [OutputType([PSCustomObject])]
     param(
-        [Parameter(Mandatory = $false)]
-        [ValidateNotNullOrEmpty()]
-        [string]$BearerToken = $script:WemApiConnection.BearerToken,
-
-        [Parameter(Mandatory = $false)]
-        [ValidateNotNullOrEmpty()]
-        [ValidatePattern("^[a-zA-Z0-9-]+$")]
-        [string]$CustomerId = $script:WemApiConnection.CustomerId,
-
         [Parameter(Mandatory = $true)]
         [int]$SiteId,
 
@@ -79,7 +66,7 @@ function New-WEMPrinter {
                 $Body.description = $Description
             }
 
-            $Result = Invoke-WemApiRequest -UriPath "services/wem/webPrinter" -Method "POST" -BearerToken $BearerToken -CustomerId $CustomerId -Body $Body
+            $Result = Invoke-WemApiRequest -UriPath "services/wem/webPrinter" -Method "POST" -Connection $Connection -Body $Body
             return $Result.Items
 
         }

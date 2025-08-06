@@ -38,7 +38,7 @@ function Remove-WEMAssignmentTarget {
                 idList = $Id
             }
 
-            Invoke-WemApiRequest -UriPath "services/wem/assignmentTarget" -Method "DELETE" -BearerToken $Connection.BearerToken -CustomerId $Connection.CustomerId -Body $Body
+            Invoke-WemApiRequest -UriPath "services/wem/assignmentTarget" -Method "DELETE" -Connection $Connection -Body $Body
             Write-Verbose "Successfully sent request to remove $($TargetDescription)"
         }
     }

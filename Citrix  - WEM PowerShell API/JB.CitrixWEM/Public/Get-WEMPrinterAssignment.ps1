@@ -4,10 +4,6 @@ function Get-WEMPrinterAssignment {
     Retrieves printer assignments from a WEM Configuration Set.
 .DESCRIPTION
     This function gets a list of all printer assignments from a specified WEM Configuration Set (Site).
-.PARAMETER BearerToken
-    The authentication bearer token for the API session.
-.PARAMETER CustomerId
-    The Citrix Customer ID.
 .PARAMETER SiteId
     The ID of the WEM Configuration Set (Site) to query.
 .EXAMPLE
@@ -21,15 +17,6 @@ function Get-WEMPrinterAssignment {
     [CmdletBinding()]
     [OutputType([PSCustomObject[]])]
     param(
-        [Parameter(Mandatory = $false)]
-        [ValidateNotNullOrEmpty()]
-        [string]$BearerToken = $script:WemApiConnection.BearerToken,
-
-        [Parameter(Mandatory = $false)]
-        [ValidateNotNullOrEmpty()]
-        [ValidatePattern("^[a-zA-Z0-9-]+$")]
-        [string]$CustomerId = $script:WemApiConnection.CustomerId,
-
         [Parameter(Mandatory = $true)]
         [int]$SiteId
     )
@@ -38,7 +25,7 @@ function Get-WEMPrinterAssignment {
         $Connection = Get-WemApiConnection
 
         $UriPath = "services/wem/printerAssignment?siteId=$($SiteId)"
-        $Result = Invoke-WemApiRequest -UriPath $UriPath -Method "GET" -BearerToken $BearerToken -CustomerId $CustomerId
+        $Result = Invoke-WemApiRequest -UriPath $UriPath -Method "GET" -Connection $Connection
         return $Result.Items
     } catch {
         Write-Error "Failed to retrieve printer assignments: $_"

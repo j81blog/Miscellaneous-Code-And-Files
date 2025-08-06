@@ -19,45 +19,60 @@ function Invoke-WemApiRequest {
     .PARAMETER Body
         An optional object that will be converted to a JSON string for the request body. Used for POST/PUT requests.
     .NOTES
-        Version:        1.2
+        Version:        1.3
         Author:         John Billekens Consultancy
         Co-Author:      Gemini
         Creation Date:  2025-08-05
     #>
-    [CmdletBinding()]
+    [CmdletBinding(DefaultParameterSetName = 'Sdk')]
     param(
-        [Parameter(Mandatory = $true)]
+        [Parameter(ParameterSetName = 'Sdk', Mandatory = $true)]
+        [Parameter(ParameterSetName = 'Connection', Mandatory = $true)]
         [string]$UriPath,
 
-        [Parameter(Mandatory = $true)]
+        [Parameter(ParameterSetName = 'Sdk', Mandatory = $true)]
+        [Parameter(ParameterSetName = 'Connection', Mandatory = $true)]
         [ValidateSet("GET", "POST", "PUT", "DELETE", "PATCH")]
         [string]$Method,
 
-        [Parameter(Mandatory = $false)]
+        [Parameter(ParameterSetName = 'Sdk', Mandatory = $false)]
         [ValidateNotNullOrEmpty()]
         [string]$BearerToken = $script:WemApiConnection.BearerToken,
 
-        [Parameter(Mandatory = $false)]
+        [Parameter(ParameterSetName = 'Sdk', Mandatory = $false)]
         [ValidateNotNullOrEmpty()]
         [ValidatePattern("^[a-zA-Z0-9-]+$")]
         [string]$CustomerId = $script:WemApiConnection.CustomerId,
 
-        [Parameter(Mandatory = $false)]
+        [Parameter(ParameterSetName = 'Sdk', Mandatory = $false)]
+        [Parameter(ParameterSetName = 'Connection', Mandatory = $false)]
         [object]$Body,
 
-        [Parameter(Mandatory = $false)]
+        [Parameter(ParameterSetName = 'Sdk', Mandatory = $false)]
         [ValidateNotNullOrEmpty()]
-        [string]$BaseUrl = $script:WemApiConnection.BaseUrl
+        [string]$BaseUrl = $script:WemApiConnection.BaseUrl,
+
+        [Parameter(ParameterSetName = 'Connection', Mandatory = $true)]
+        [PSCustomObject]$Connection
     )
 
-    $FullUri = "$($BaseUrl)/$($UriPath)"
 
     # Define headers required for the API call
     $Headers = @{
-        "Accept"            = "application/json,"
-        "Accept-Encoding"   = "gzip, deflate, br, zstd"
-        "Authorization"     = "$($BearerToken)"
-        "Citrix-CustomerId" = "$CustomerId"
+        "Accept"          = "application/json,"
+        "Accept-Encoding" = "gzip, deflate, br, zstd"
+    }
+    if ($PSCmdlet.ParameterSetName -eq 'Connection') {
+        $Headers.Add("Authorization", "$($Connection.BearerToken)")
+        $FullUri = "$($Connection.BaseUrl)/$($UriPath.TrimStart('/'))"
+
+    } else {
+        $Headers.Add("Authorization", "$BearerToken")
+        $FullUri = "$($BaseUrl)/$($UriPath.TrimStart('/'))"
+    }
+
+    if (-not [string]::IsNullOrEmpty($CustomerId)) {
+        $Headers.Add("Citrix-CustomerId", "$CustomerId")
     }
     Write-Verbose "Constructed API URI: $FullUri"
     Write-Verbose "Using HTTP Method: $Method"

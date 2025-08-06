@@ -97,7 +97,7 @@ function New-WEMAssignmentTarget {
                 directoryContext = $DirectoryContext
             }
 
-            $Result = Invoke-WemApiRequest -UriPath "services/wem/assignmentTarget" -Method "POST" -BearerToken $Connection.BearerToken -CustomerId $Connection.CustomerId -Body $Body
+            $Result = Invoke-WemApiRequest -UriPath "services/wem/assignmentTarget" -Method "POST" -Connection $Connection -Body $Body
             return $Result.Items
         }
     }

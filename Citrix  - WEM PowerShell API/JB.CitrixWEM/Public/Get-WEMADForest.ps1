@@ -24,9 +24,13 @@ function Get-WEMADForest {
         # Get connection details. Throws an error if not connected.
         $Connection = Get-WemApiConnection
 
-        $UriPath = "services/wem/forward/identity/Forests"
+        if ($Connection.IsOnPrem -eq $true) {
+            $UriPath = "services/wem/onPrem/identity/Forests"
+        } else {
+            $UriPath = "services/wem/forward/identity/Forests"
+        }
 
-        $Result = Invoke-WemApiRequest -UriPath $UriPath -Method "GET" -BearerToken $Connection.BearerToken -CustomerId $Connection.CustomerId
+        $Result = Invoke-WemApiRequest -UriPath $UriPath -Method "GET" -Connection $Connection
 
         # Consistent with other Get-* functions, return the 'Items' property which contains the array of results.
         return $Result.Items

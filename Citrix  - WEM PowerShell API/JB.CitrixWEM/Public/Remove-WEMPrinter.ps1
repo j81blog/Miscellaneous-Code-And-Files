@@ -37,7 +37,7 @@ function Remove-WEMPrinter {
                 idList = $Id
             }
 
-            Invoke-WemApiRequest -UriPath "services/wem/webPrinter" -Method "DELETE" -BearerToken $Connection.BearerToken -CustomerId $Connection.CustomerId -Body $Body
+            Invoke-WemApiRequest -UriPath "services/wem/webPrinter" -Method "DELETE" -Connection $Connection -Body $Body
             Write-Verbose "Successfully sent request to remove printer(s) with ID(s): $($Id -join ', ')"
         }
     }

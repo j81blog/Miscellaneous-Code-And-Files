@@ -4,10 +4,6 @@ function New-WEMPrinterAssignment {
     Assigns a WEM printer action to a target (user/group).
 .DESCRIPTION
     This function creates a new assignment for a WEM printer, linking it to a specific target and optionally applying a filter.
-.PARAMETER BearerToken
-    The authentication bearer token for the API session.
-.PARAMETER CustomerId
-    The Citrix Customer ID.
 .PARAMETER SiteId
     The ID of the WEM Configuration Set (Site).
 .PARAMETER ResourceId
@@ -29,15 +25,6 @@ function New-WEMPrinterAssignment {
     [CmdletBinding(SupportsShouldProcess = $true)]
     [OutputType([PSCustomObject])]
     param(
-        [Parameter(Mandatory = $false)]
-        [ValidateNotNullOrEmpty()]
-        [string]$BearerToken = $script:WemApiConnection.BearerToken,
-
-        [Parameter(Mandatory = $false)]
-        [ValidateNotNullOrEmpty()]
-        [ValidatePattern("^[a-zA-Z0-9-]+$")]
-        [string]$CustomerId = $script:WemApiConnection.CustomerId,
-
         [Parameter(Mandatory = $true)]
         [int]$SiteId,
 
@@ -67,7 +54,7 @@ function New-WEMPrinterAssignment {
                 isDefault  = $SetAsDefault.IsPresent
             }
 
-            $Result = Invoke-WemApiRequest -UriPath "services/wem/printerAssignment" -Method "POST" -BearerToken $BearerToken -CustomerId $CustomerId -Body $Body
+            $Result = Invoke-WemApiRequest -UriPath "services/wem/printerAssignment" -Method "POST" -Connection $Connection -Body $Body
             return $Result.Items
         }
     } catch {

@@ -1,5 +1,5 @@
 function Get-WEMADDomain {
-<#
+    <#
 .SYNOPSIS
     Retrieves the Active Directory domains within a specified forest.
 .DESCRIPTION
@@ -34,14 +34,17 @@ function Get-WEMADDomain {
         # Get connection details. Throws an error if not connected.
         $Connection = Get-WemApiConnection
 
-        $UriPath = "/services/wem/forward/identity/Forests/$($ForestName)/Domains?provider=AD&parentDomain=&admin=&key="
+        if ($Connection.IsOnPrem -eq $true) {
+            $UriPath = "/services/wem/onPrem/identity/Forests/$($ForestName)/Domains?provider=AD&parentDomain=&admin=&key="
+        } else {
+            $UriPath = "/services/wem/forward/identity/Forests/$($ForestName)/Domains?provider=AD&parentDomain=&admin=&key="
+        }
 
-        $Result = Invoke-WemApiRequest -UriPath $UriPath -Method "GET" -BearerToken $Connection.BearerToken -CustomerId $Connection.CustomerId
+        $Result = Invoke-WemApiRequest -UriPath $UriPath -Method "GET" -Connection $Connection
 
         # Consistent with other Get-* functions, return the 'Items' property which contains the array of results.
         return $Result
-    }
-    catch {
+    } catch {
         Write-Error "Failed to retrieve WEM AD Domains for forest '$($ForestName)': $_"
         return $null
     }

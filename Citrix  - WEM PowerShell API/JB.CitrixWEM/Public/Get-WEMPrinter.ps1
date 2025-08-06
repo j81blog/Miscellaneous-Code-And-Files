@@ -5,10 +5,6 @@ function Get-WEMPrinter {
     Retrieves printers from a WEM Configuration Set.
 .DESCRIPTION
     This function gets a list of all configured printer actions from a specified WEM Configuration Set (Site).
-.PARAMETER BearerToken
-    The authentication bearer token for the API session.
-.PARAMETER CustomerId
-    The Citrix Customer ID.
 .PARAMETER SiteId
     The ID of the WEM Configuration Set (Site) to query.
 .PARAMETER IncludeAssignmentCount
@@ -24,15 +20,6 @@ function Get-WEMPrinter {
     [CmdletBinding()]
     [OutputType([PSCustomObject[]])]
     param(
-        [Parameter(Mandatory = $false)]
-        [ValidateNotNullOrEmpty()]
-        [string]$BearerToken = $script:WemApiConnection.BearerToken,
-
-        [Parameter(Mandatory = $false)]
-        [ValidateNotNullOrEmpty()]
-        [ValidatePattern("^[a-zA-Z0-9-]+$")]
-        [string]$CustomerId = $script:WemApiConnection.CustomerId,
-
         [Parameter(Mandatory = $true)]
         [int]$SiteId,
 

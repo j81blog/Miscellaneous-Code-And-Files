@@ -21,15 +21,6 @@ function Get-WEMActionSettings {
     [CmdletBinding()]
     [OutputType([PSCustomObject[]])]
     param(
-        [Parameter(Mandatory = $false)]
-        [ValidateNotNullOrEmpty()]
-        [string]$BearerToken = $script:WemApiConnection.BearerToken,
-
-        [Parameter(Mandatory = $false)]
-        [ValidateNotNullOrEmpty()]
-        [ValidatePattern("^[a-zA-Z0-9-]+$")]
-        [string]$CustomerId = $script:WemApiConnection.CustomerId,
-
         [Parameter(Mandatory = $true)]
         [int]$SiteId
     )
@@ -38,7 +29,7 @@ function Get-WEMActionSettings {
         $Connection = Get-WemApiConnection
 
         $UriPath = "services/wem/advancedSetting/actionSettings?siteId=$($SiteId)"
-        $Result = Invoke-WemApiRequest -UriPath $UriPath -Method "GET" -BearerToken $BearerToken -CustomerId $CustomerId
+        $Result = Invoke-WemApiRequest -UriPath $UriPath -Method "GET" -Connection $Connection
         return $Result.Items
     } catch {
         Write-Error "Failed to retrieve action settings: $_"

@@ -17,8 +17,9 @@ function Get-WemApiConnection {
         Creation Date:  2025-08-05
     #>
     # It ensures that a connection has been established before other cmdlets are run.
-    if ($null -eq $script:WemApiConnection -or ([String]::IsNullOrEmpty($($script:WemApiConnection.BearerToken)) -or [String]::IsNullOrEmpty($($script:WemApiConnection.CustomerId)))) {
+    if ($null -eq $script:WemApiConnection -or ([String]::IsNullOrEmpty($($script:WemApiConnection.BearerToken)))) {
         throw "Not connected to Citrix Cloud API. Please run Connect-WemApi first."
     }
+    Write-Verbose "Connection: $($script:WemApiConnection | Out-String)"
     return $script:WemApiConnection
 }

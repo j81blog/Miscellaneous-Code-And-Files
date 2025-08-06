@@ -1,5 +1,5 @@
 function Search-WEMActiveDirectoryObject {
-<#
+    <#
 .SYNOPSIS
     Searches for Active Directory objects (users/groups) via the WEM service.
 .DESCRIPTION
@@ -63,20 +63,24 @@ function Search-WEMActiveDirectoryObject {
         $EncodedFilter = [System.Web.HttpUtility]::UrlEncode($Filter)
 
         # Construct the complex URI from the parameters
-        $UriPath = "services/wem/forward/identity/Forests/$($ForestName)/Domains/$($DomainName)/Users"
+        if ($Connection.IsOnPrem -eq $true) {
+            $UriPath = "services/wem/onPrem/identity/Forests/$($ForestName)/Domains/$($DomainName)/Users"
+        } else {
+            $UriPath = "services/wem/forward/identity/Forests/$($ForestName)/Domains/$($DomainName)/Users"
+        }
+
+
         $UriPath += "?provider=AD&admin=&key=&queryOptions.take=$($MaxCount)&queryOptions.filter=$($EncodedFilter)&queryOptions.searchType=$($SearchType)"
 
-        $Result = Invoke-WemApiRequest -UriPath $UriPath -Method "GET" -BearerToken $Connection.BearerToken -CustomerId $Connection.CustomerId
+        $Result = Invoke-WemApiRequest -UriPath $UriPath -Method "GET" -Connection $Connection
 
         # The API nests the results in a 'results' property inside 'Items'
         if ($null -ne $Result.Items.results) {
             return $Result.Items.results
-        }
-        else {
+        } else {
             return $Result.Items
         }
-    }
-    catch {
+    } catch {
         Write-Error "Failed to search Active Directory objects with filter '$($Filter)': $_"
         return $null
     }
