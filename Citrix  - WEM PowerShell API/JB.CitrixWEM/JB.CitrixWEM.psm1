@@ -37,17 +37,22 @@ Set-Variable -Name OnRemove -Value $OnRemove -Scope Script -Option AllScope
 
 #Hide Progress bar
 $Script:ProgressPreference = "SilentlyContinue"
+$messageData = [System.Management.Automation.HostInformationMessage]@{
+        Message         = $MessageData
+        ForegroundColor = $ForegroundColor
+        BackgroundColor = $BackgroundColor
+        NoNewline       = $NoNewline.IsPresent
+    }
 
 if ($Global:WEMModuleHideInfo -ne $true) {
     $InformationPreference = "Continue"
-    Write-Information -MessageData "`r`nConnect to your wem environment using the one of the following options:"
+    Write-Information -MessageData ([System.Management.Automation.HostInformationMessage]@{Message = "`r`nConnect to your wem environment using the one of the following options:"; ForeGroundColor = "White"})
     Write-Information -MessageData "1. OnPrem: "
-    Write-Information -MessageData "   PS C:\> Connect-WEMApi -WEMServer `"<WEM Server FQDN>`" -Credential <Your WEM Credential>`n"
+    Write-Information -MessageData ([System.Management.Automation.HostInformationMessage]@{Message = "Connect-WEMApi -WEMServer `"<WEM Server FQDN>`" -Credential <Your WEM Credential>`n"; ForeGroundColor = "Cyan"})
     Write-Information -MessageData "2. Citrix Cloud (Web Credentials): "
-    Write-Information -MessageData "   PS C:\> Connect-WEMApi -CustomerId <CustomerID> -UseSdkAuthentication`n"
+    Write-Information -MessageData ([System.Management.Automation.HostInformationMessage]@{Message = "Connect-WEMApi [-CustomerId <CustomerID>]`n"; ForeGroundColor = "Cyan"})
     Write-Information -MessageData "3. Citrix Cloud (API Credentials): "
-    Write-Information -MessageData "   PS C:\> Connect-WEMApi -CustomerId <CustomerID> -ClientId <ClientID> -ClientSecret <Secret>`n`n"
-    Write-Information -MessageData "NOTE: If you want to suppress this message in the future set: "
-    Write-Information -MessageData "      PS C:\> `$Global:WEMModuleHideInfo = `$true"
+    Write-Information -MessageData ([System.Management.Automation.HostInformationMessage]@{Message = "Connect-WEMApi -CustomerId <CustomerID> -ClientId <ClientID> -ClientSecret <Secret>`n`n"; ForeGroundColor = "Cyan"})
+    Write-Information -MessageData ([System.Management.Automation.HostInformationMessage]@{Message = "NOTE: If you want to suppress this message in the future set: `$Global:WEMModuleHideInfo = `$true`n"; ForeGroundColor = "Yellow"})
     $InformationPreference = "SilentlyContinue"
 }

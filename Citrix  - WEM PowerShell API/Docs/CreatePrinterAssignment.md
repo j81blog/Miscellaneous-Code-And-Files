@@ -12,11 +12,21 @@ First, the script sets up the environment. It imports the necessary custom Power
 # Import the custom module to interact with the WEM API
 Import-Module "JB.CitrixWEM" -Force
 
-# Authenticate and connect to the WEM API
-Connect-WEMApi
+# Authenticate and connect to the WEM Service or server
+# 1. OnPrem:
+Connect-WEMApi -WEMServer "<WEM Server FQDN>" -Credential <Your WEM Credential>
+
+# 2. Citrix Cloud (Web Credentials):
+Connect-WEMApi [-CustomerId <CustomerID>]
+
+# 3. Citrix Cloud (API Credentials):
+Connect-WEMApi -CustomerId <CustomerID> -ClientId <ClientID> -ClientSecret <Secret>
+
+#List the Configuration Sites
+Get-WEMConfigurationSite
 
 # Set the active configuration site by its ID
-Set-WEMActiveConfigurationSite -Id 3
+Set-WEMActiveConfigurationSite -Id <SiteID>
 
 # Set the active domain
 Set-WEMActiveDomain
