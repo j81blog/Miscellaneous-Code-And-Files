@@ -1,20 +1,23 @@
-function Get-WEMPrinterAssignment {
+function Get-WEMApplicationAssignment {
     <#
     .SYNOPSIS
-        Retrieves printer assignments from a WEM Configuration Set.
+        Retrieves application assignments from a WEM Configuration Set.
     .DESCRIPTION
-        This function gets a list of all printer assignments from a specified WEM Configuration Set (Site).
+        This function gets a list of all application assignments from a specified WEM
+        Configuration Set (Site). If -SiteId is not specified, it uses the active
+        Configuration Set defined by Set-WEMActiveConfigurationSite.
     .PARAMETER SiteId
-        The ID of the WEM Configuration Set (Site) to query.
+        The ID of the WEM Configuration Set (Site) to query. Defaults to the active site.
     .EXAMPLE
-        PS C:\> Get-WEMPrinterAssignment -SiteId 1
+        PS C:\> # After running Set-WEMActiveConfigurationSite -Id 1
+        PS C:\> Get-WEMApplicationAssignment
 
-        Retrieves all printer assignments for the Configuration Set with ID 1.
+        Retrieves all application assignments from the active Configuration Set (ID 1).
     .NOTES
-        Version:        1.1
+        Version:        1.0
         Author:         John Billekens Consultancy
         Co-Author:      Gemini
-        Creation Date:  2025-08-05
+        Creation Date:  2025-08-08
     #>
     [CmdletBinding()]
     [OutputType([PSCustomObject[]])]
@@ -38,11 +41,14 @@ function Get-WEMPrinterAssignment {
             throw "No -SiteId was provided, and no active Configuration Set has been set. Please use Set-WEMActiveConfigurationSite or specify the -SiteId parameter."
         }
 
-        $UriPath = "services/wem/printerAssignment?siteId=$($ResolvedSiteId)"
+        # The UriPath is the same for both Cloud and On-Premises.
+        $UriPath = "services/wem/applicationAssignment?siteId=$($ResolvedSiteId)"
+
         $Result = Invoke-WemApiRequest -UriPath $UriPath -Method "GET" -Connection $Connection
+
         Write-Output ($Result | Expand-WEMResult)
     } catch {
-        Write-Error "Failed to retrieve WEM Printer Assignments for Site ID '$($ResolvedSiteId)': $($_.Exception.Message)"
+        Write-Error "Failed to retrieve WEM Application Assignments for Site ID '$($ResolvedSiteId)': $($_.Exception.Message)"
         return $null
     }
 }

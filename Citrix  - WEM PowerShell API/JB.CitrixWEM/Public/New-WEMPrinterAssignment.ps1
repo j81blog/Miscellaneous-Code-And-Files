@@ -1,65 +1,107 @@
 function New-WEMPrinterAssignment {
     <#
-.SYNOPSIS
-    Assigns a WEM printer action to a target (user/group).
-.DESCRIPTION
-    This function creates a new assignment for a WEM printer, linking it to a specific target and optionally applying a filter.
-.PARAMETER SiteId
-    The ID of the WEM Configuration Set (Site).
-.PARAMETER ResourceId
-    The ID of the printer resource/action that you want to assign.
-.PARAMETER TargetId
-    The ID of the target (e.g., Active Directory group or user) to which the printer will be assigned.
-.PARAMETER FilterId
-    The ID of the filter to apply to this assignment. Defaults to 1 (Always True).
-.PARAMETER SetAsDefault
-    Specifies if this printer should be set as the default printer for the target.
-.EXAMPLE
-    PS C:\> New-WEMPrinterAssignment -BearerToken "xxxx" -CustomerId "yyyy" -SiteId 1 -ResourceId 132 -TargetId 63 -SetAsDefault
-.NOTES
-    Version:        1.0
-    Author:         John Billekens Consultancy
-    Co-Author:      Gemini
-    Creation Date:  2025-08-05
-#>
+    .SYNOPSIS
+        Assigns a WEM printer action to a target.
+    .DESCRIPTION
+        This function creates a new assignment for a WEM printer, linking a target (user/group),
+        a resource (the printer), and an optional filter rule. If -SiteId is not specified, it uses
+        the active Configuration Set defined by Set-WEMActiveConfigurationSite.
+    .PARAMETER Target
+        The assignment target object (e.g., from Get-WEMADGroup or Get-WEMADUser) to which the printer will be assigned.
+    .PARAMETER Printer
+        The printer action object (from Get-WEMPrinter) that you want to assign.
+    .PARAMETER FilterRule
+        An optional filter rule object (from Get-WEMFilterRule) to apply to this assignment.
+        If not provided, the "Always True" filter is used by default.
+    .PARAMETER SetAsDefault
+        Specifies if this printer should be set as the default printer for the target.
+    .PARAMETER SiteId
+        The ID of the WEM Configuration Set. Defaults to the active site.
+    .PARAMETER PassThru
+        If specified, the command returns the newly created assignment object.
+    .EXAMPLE
+        PS C:\> $Printer = Get-WEMPrinter -DisplayName "PRT10954"
+        PS C:\> $Group = Get-WEMADGroup -Filter "prt-utr-jlr"
+        PS C:\> New-WEMPrinterAssignment -Target $Group -Printer $Printer -PassThru
+
+        Assigns the specified printer to the specified group and returns the new assignment object.
+    .NOTES
+        Version:        1.3
+        Author:         John Billekens Consultancy
+        Co-Author:      Gemini
+        Creation Date:  2025-08-22
+    #>
     [CmdletBinding(SupportsShouldProcess = $true)]
     [OutputType([PSCustomObject])]
     param(
+        [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
+        [PSCustomObject]$Target,
+
         [Parameter(Mandatory = $true)]
+        [Alias("Resource")]
+        [PSCustomObject]$Printer,
+
+        [Parameter(Mandatory = $false)]
+        [PSCustomObject]$FilterRule,
+
+        [Parameter(Mandatory = $false)]
+        [switch]$SetAsDefault,
+
+        [Parameter(Mandatory = $false)]
         [int]$SiteId,
 
-        [Parameter(Mandatory = $true)]
-        [int]$ResourceId,
-
-        [Parameter(Mandatory = $true)]
-        [int]$TargetId,
-
         [Parameter(Mandatory = $false)]
-        [int]$FilterId = 1,
-
-        [Parameter(Mandatory = $false)]
-        [switch]$SetAsDefault
+        [switch]$PassThru
     )
+
     try {
-        # Get connection details. Throws an error if not connected.
         $Connection = Get-WemApiConnection
 
-        $TargetDescription = "TargetID: $($TargetId)" # You might want to resolve this to a name for better ShouldProcess messages.
-        if ($PSCmdlet.ShouldProcess($TargetDescription, "Assign WEM Printer (ID: $($ResourceId))")) {
+        $ResolvedSiteId = 0
+        if ($PSBoundParameters.ContainsKey('SiteId')) {
+            $ResolvedSiteId = $SiteId
+        } elseif ($Connection.ActiveSiteId) {
+            $ResolvedSiteId = $Connection.ActiveSiteId
+            Write-Verbose "Using active Configuration Set '$($Connection.ActiveSiteName)' (ID: $ResolvedSiteId)"
+        } else {
+            throw "No -SiteId was provided, and no active Configuration Set has been set. Please use Set-WEMActiveConfigurationSite or specify the -SiteId parameter."
+        }
+
+        if (-not $Target.PSObject.Properties['id']) { throw "The provided -Target object does not have an 'id' property." }
+        if (-not $Printer.PSObject.Properties['id']) { throw "The provided -Printer object does not have an 'id' property." }
+
+        $ResolvedFilterId = 1 # Default to "Always True"
+        if ($PSBoundParameters.ContainsKey('FilterRule')) {
+            if (-not $FilterRule.PSObject.Properties['id']) { throw "The provided -FilterRule object does not have an 'id' property." }
+            $ResolvedFilterId = $FilterRule.id
+            Write-Verbose "Using specified filter rule '$($FilterRule.Name)' (ID: $ResolvedFilterId)"
+        } else {
+            Write-Verbose "No filter rule specified, using default 'Always True' (ID: 1)."
+        }
+
+        $TargetDescription = "Assign Printer '$($Printer.DisplayName)' (ID: $($Printer.id)) to Target '$($Target.Name)' (ID: $($Target.id))"
+        if ($PSCmdlet.ShouldProcess($TargetDescription, "Create Assignment")) {
             $Body = @{
-                siteId     = $SiteId
-                resourceId = $ResourceId
-                targetId   = $TargetId
-                filterId   = $FilterId
+                siteId     = $ResolvedSiteId
+                resourceId = $Printer.id
+                targetId   = $Target.id
+                filterId   = $ResolvedFilterId
                 isDefault  = $SetAsDefault.IsPresent
             }
 
-            $Result = Invoke-WemApiRequest -UriPath "services/wem/printerAssignment" -Method "POST" -Connection $Connection -Body $Body
-            return $Result.Items
+            $UriPath = "services/wem/printerAssignment"
+            $Result = Invoke-WemApiRequest -UriPath $UriPath -Method "POST" -Connection $Connection -Body $Body
+
+            if ($PassThru.IsPresent) {
+                Write-Verbose "PassThru specified, retrieving newly created assignment..."
+                # REFINED: More efficient lookup by filtering with -SiteId first.
+                $Result = Get-WEMPrinterAssignment -SiteId $ResolvedSiteId | Where-Object { $_.resourceId -eq $Printer.id -and $_.targetId -eq $Target.id -and $_.filterId -eq $ResolvedFilterId }
+            }
+
+            Write-Output ($Result | Expand-WEMResult)
         }
     } catch {
-        Write-Error "Failed to assign printer: $_"
+        Write-Error "Failed to create WEM Printer Assignment: $($_.Exception.Message)"
         return $null
     }
 }
-

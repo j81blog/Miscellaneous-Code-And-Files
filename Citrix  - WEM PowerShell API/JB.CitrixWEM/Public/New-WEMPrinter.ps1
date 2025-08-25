@@ -1,77 +1,98 @@
-
 function New-WEMPrinter {
     <#
-.SYNOPSIS
-    Creates a new network printer in Citrix WEM.
-.DESCRIPTION
-    This function adds a new network printer action to a specified WEM Configuration Set (Site).
-.PARAMETER SiteId
-    The ID of the WEM Configuration Set (Site) where the printer will be created.
-.PARAMETER PrinterPath
-    The UNC path of the network printer (e.g., \\server\printer).
-.PARAMETER DisplayName
-    The name of the printer to be displayed to the user.
-.PARAMETER Description
-    An optional description for the printer action.
-.PARAMETER Enabled
-    Specifies whether the printer action is enabled. Defaults to $true.
-.PARAMETER SelfHealing
-    Enables or disables the self-healing feature for this printer. Defaults to $false.
-.PARAMETER UseCredential
-    Specifies whether to use alternate credentials for the connection. Defaults to $false.
-.EXAMPLE
-    PS C:\> New-WEMPrinter -BearerToken "xxxx" -CustomerId "abcdef123" -SiteId 1 -PrinterPath "\\printserver01.domain.local\ITPrinter" -DisplayName "IT Department Printer"
-.NOTES
-    Version:        1.0
-    Author:         John Billekens Consultancy
-    Co-Author:      Gemini
-#>
+    .SYNOPSIS
+        Creates a new network printer in Citrix WEM.
+    .DESCRIPTION
+        This function adds a new network printer action. If -SiteId is not specified, it uses
+        the active Configuration Set defined by Set-WEMActiveConfigurationSite.
+    .PARAMETER Name
+        The unique name for the printer action.
+    .PARAMETER PrinterPath
+        The UNC path of the network printer (e.g., \\server\printer).
+    .PARAMETER DisplayName
+        The name of the printer to be displayed to the user. This is optional.
+    .NOTES
+        Version:        1.3
+        Author:         John Billekens Consultancy
+        Co-Author:      Gemini
+        Creation Date:  2025-08-22
+    #>
     [CmdletBinding(SupportsShouldProcess = $true)]
     [OutputType([PSCustomObject])]
     param(
-        [Parameter(Mandatory = $true)]
+        [Parameter(Mandatory = $false)]
         [int]$SiteId,
 
         [Parameter(Mandatory = $true)]
-        [string]$PrinterPath,
+        [string]$Name,
 
         [Parameter(Mandatory = $true)]
+        [Alias("Path")]
+        [string]$PrinterPath,
+
+        [Parameter(Mandatory = $false)]
         [string]$DisplayName,
 
         [Parameter(Mandatory = $false)]
-        [string]$Description = "",
+        [string]$Description,
 
         [Parameter(Mandatory = $false)]
         [bool]$Enabled = $true,
 
         [Parameter(Mandatory = $false)]
-        [bool]$SelfHealing = $true
+        [bool]$SelfHealing = $true,
+
+        [Parameter(Mandatory = $false)]
+        [bool]$UseCredential = $false,
+
+        [Parameter(Mandatory = $false)]
+        [switch]$PassThru
     )
+
     try {
         # Get connection details. Throws an error if not connected.
         $Connection = Get-WemApiConnection
 
-        if ($PSCmdlet.ShouldProcess($PrinterPath, "Create WEM Printer")) {
+        $ResolvedSiteId = 0
+        if ($PSBoundParameters.ContainsKey('SiteId')) {
+            $ResolvedSiteId = $SiteId
+        } elseif ($Connection.ActiveSiteId) {
+            $ResolvedSiteId = $Connection.ActiveSiteId
+            Write-Verbose "Using active Configuration Set '$($Connection.ActiveSiteName)' (ID: $ResolvedSiteId)"
+        } else {
+            throw "No -SiteId was provided, and no active Configuration Set has been set. Please use Set-WEMActiveConfigurationSite or specify the -SiteId parameter."
+        }
+
+        if ($PSCmdlet.ShouldProcess($PrinterPath, "Create WEM Printer '$($Name)' in Site ID '$($ResolvedSiteId)'")) {
             $Body = @{
-                siteId        = $SiteId
+                siteId        = $ResolvedSiteId
                 enabled       = $Enabled
                 actionType    = "NetWorkPrinter"
-                useCredential = $false
+                useCredential = $UseCredential
                 selfHealing   = $SelfHealing
-                displayName   = $DisplayName
-                name          = $PrinterPath
+                name          = $Name
                 targetPath    = $PrinterPath
             }
-            if (-not [String]::IsNullOrEmpty($Description)) {
-                $Body.description = $Description
+            # CORRECTED: Only add DisplayName and Description if they are explicitly provided.
+            if ($PSBoundParameters.ContainsKey('DisplayName')) {
+                $Body.Add('displayName', $DisplayName)
+            }
+            if ($PSBoundParameters.ContainsKey('Description')) {
+                $Body.Add('description', $Description)
             }
 
-            $Result = Invoke-WemApiRequest -UriPath "services/wem/webPrinter" -Method "POST" -Connection $Connection -Body $Body
-            return $Result.Items
+            $UriPath = "services/wem/webPrinter"
+            $Result = Invoke-WemApiRequest -UriPath $UriPath -Method "POST" -Connection $Connection -Body $Body
 
+            if ($PassThru.IsPresent) {
+                Write-Verbose "PassThru specified, retrieving newly created printer..."
+                $Result = Get-WEMPrinter -SiteId $ResolvedSiteId | Where-Object { $_.Name -ieq $Name }
+            }
+
+            Write-Output ($Result | Expand-WEMResult -ErrorAction SilentlyContinue)
         }
     } catch {
-        Write-Error "Failed to create printer: $_"
+        Write-Error "Failed to create WEM Printer '$($PrinterPath)': $($_.Exception.Message)"
         return $null
     }
 }

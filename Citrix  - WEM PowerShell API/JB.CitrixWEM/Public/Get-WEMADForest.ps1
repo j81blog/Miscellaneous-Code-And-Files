@@ -1,21 +1,21 @@
 function Get-WEMADForest {
-<#
-.SYNOPSIS
-    Retrieves the configured Active Directory forests from WEM.
-.DESCRIPTION
-    This function retrieves a list of the Active Directory forests that are registered and recognized
-    by the WEM service via its configured Cloud Connectors.
-    Requires an active session established by Connect-WemApi.
-.EXAMPLE
-    PS C:\> Get-WEMADForest
+    <#
+    .SYNOPSIS
+        Retrieves the configured Active Directory forests from WEM.
+    .DESCRIPTION
+        This function retrieves a list of the Active Directory forests that are registered and recognized
+        by the WEM service. It automatically selects the correct API endpoint for Cloud or On-Premises.
+        Requires an active session established by Connect-WemApi.
+    .EXAMPLE
+        PS C:\> Get-WEMADForest
 
-    Returns a list of all configured forests.
-.NOTES
-    Version:        1.1
-    Author:         John Billekens Consultancy
-    Co-Author:      Gemini
-    Creation Date:  2025-08-05
-#>
+        Returns a list of all configured forests.
+    .NOTES
+        Version:        1.2
+        Author:         John Billekens Consultancy
+        Co-Author:      Gemini
+        Creation Date:  2025-08-05
+    #>
     [CmdletBinding()]
     [OutputType([PSCustomObject[]])]
     param()
@@ -24,7 +24,7 @@ function Get-WEMADForest {
         # Get connection details. Throws an error if not connected.
         $Connection = Get-WemApiConnection
 
-        if ($Connection.IsOnPrem -eq $true) {
+        if ($Connection.IsOnPrem) {
             $UriPath = "services/wem/onPrem/identity/Forests"
         } else {
             $UriPath = "services/wem/forward/identity/Forests"
@@ -32,11 +32,10 @@ function Get-WEMADForest {
 
         $Result = Invoke-WemApiRequest -UriPath $UriPath -Method "GET" -Connection $Connection
 
-        # Consistent with other Get-* functions, return the 'Items' property which contains the array of results.
-        return $Result.Items
-    }
-    catch {
-        Write-Error "Failed to retrieve WEM AD Forests: $_"
+        # Consistent with other Get-* functions that return a list, return the 'Items' property.
+        Write-Output ($Result | Expand-WEMResult)
+    } catch {
+        Write-Error "Failed to retrieve WEM AD Forests: $($_.Exception.Message)"
         return $null
     }
 }

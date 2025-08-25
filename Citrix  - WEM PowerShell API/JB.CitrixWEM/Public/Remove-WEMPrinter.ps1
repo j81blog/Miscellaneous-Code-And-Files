@@ -1,27 +1,27 @@
 function Remove-WEMPrinter {
-<#
-.SYNOPSIS
-    Removes one or more WEM printer actions.
-.DESCRIPTION
-    This function removes one or more WEM printer actions based on their unique ID.
-    This is a destructive operation.
-.PARAMETER Id
-    The unique ID (or an array of IDs) of the printer action(s) to remove.
-    This parameter accepts input from the pipeline by property name.
-.EXAMPLE
-    PS C:\> Remove-WEMPrinter -Id 132
+    <#
+    .SYNOPSIS
+        Removes one or more WEM printer actions.
+    .DESCRIPTION
+        This function removes one or more WEM printer actions based on their unique ID.
+        This is a destructive operation.
+    .PARAMETER Id
+        The unique ID (or an array of IDs) of the printer action(s) to remove.
+        This parameter accepts input from the pipeline by property name.
+    .EXAMPLE
+        PS C:\> Remove-WEMPrinter -Id 132
 
-    Removes the WEM printer with ID 132 after asking for confirmation.
-.EXAMPLE
-    PS C:\> Get-WEMPrinter -ID 132 | Remove-WEMPrinter
+        Removes the WEM printer with ID 132 after asking for confirmation.
+    .EXAMPLE
+        PS C:\> Get-WEMPrinter -Id 132 | Remove-WEMPrinter -Force
 
-    Finds the printer with ID 132 and removes it without asking for confirmation.
-.NOTES
-    Version:        1.0
-    Author:         John Billekens Consultancy
-    Co-Author:      Gemini
-    Creation Date:  2025-08-05
-#>
+        Finds the printer with ID 132 and removes it without asking for confirmation.
+    .NOTES
+        Version:        1.1
+        Author:         John Billekens Consultancy
+        Co-Author:      Gemini
+        Creation Date:  2025-08-07
+    #>
     [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'High')]
     param(
         [Parameter(Mandatory = $true, ValueFromPipelineByPropertyName = $true)]
@@ -37,11 +37,12 @@ function Remove-WEMPrinter {
                 idList = $Id
             }
 
-            Invoke-WemApiRequest -UriPath "services/wem/webPrinter" -Method "DELETE" -Connection $Connection -Body $Body
+            $UriPath = "services/wem/webPrinter"
+            $Result = Invoke-WemApiRequest -UriPath $UriPath -Method "DELETE" -Connection $Connection -Body $Body
             Write-Verbose "Successfully sent request to remove printer(s) with ID(s): $($Id -join ', ')"
+            Write-Output ($Result | Expand-WEMResult)
         }
-    }
-    catch {
-        Write-Error "Failed to remove WEM Printer(s): $_"
+    } catch {
+        Write-Error "Failed to remove WEM Printer(s) with ID(s) '$($Id -join ', ')': $($_.Exception.Message)"
     }
 }

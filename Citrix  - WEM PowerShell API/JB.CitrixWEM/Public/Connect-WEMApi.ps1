@@ -1,218 +1,200 @@
-
 function Connect-WEMApi {
     <#
-    .SYNOPSIS
-        Authenticates to the Citrix Cloud API and establishes a session for WEM cmdlets.
-    .DESCRIPTION
-        This function authenticates against the Citrix Cloud API.
-        It supports two methods:
-        1. Using dedicated API credentials (ClientId and ClientSecret). This is the default method.
-        2. Using an existing Citrix DaaS PowerShell SDK authentication by specifying -UseSdkAuthentication.
+.SYNOPSIS
+    Authenticates to the Citrix WEM API (Cloud or On-Premises) and establishes a session.
+.DESCRIPTION
+    This function authenticates against the Citrix WEM API and supports three methods:
+    1. Cloud with API credentials (ClientId and ClientSecret).
+    2. Cloud with an existing Citrix DaaS PowerShell SDK session (checks for a cached session first).
+    3. On-Premises with user credentials.
 
-        On success, it stores the resulting bearer token and Customer ID for use by other functions in this module.
-    .PARAMETER CustomerId
-        The Citrix Customer ID. This is required for both authentication methods.
-    .PARAMETER ClientId
-        The Client ID of the Secure Client created in Citrix Cloud Identity and Access Management. Used for API credential authentication.
-    .PARAMETER ClientSecret
-        The Client Secret for the specified Client ID. This should be a SecureString. Used for API credential authentication.
-    .PARAMETER UseSdkAuthentication
-        If specified, the function will attempt to use the authentication context from the Citrix PowerShell SDK (`Get-XDAuthentication`).
-        This requires the 'Citrix.PoshSdkProxy.Commands' module to be installed.
+    On success, it stores the connection details for use by other functions in the module.
+.PARAMETER CustomerId
+    The Citrix Customer ID. Required for all Cloud authentication methods.
+.PARAMETER ClientId
+    The Client ID of the Secure Client for API credential authentication.
+.PARAMETER ClientSecret
+    The Client Secret for the specified Client ID.
+.PARAMETER WEMServer
+    The URI of the On-Premises WEM Infrastructure Server (e.g., http://wemserver.domain.local).
+.PARAMETER Credential
+    A PSCredential object for On-Premises authentication. The username should be in format 'DOMAIN\user' or 'user@domain.com'.
+.PARAMETER ApiRegion
+    Specifies the Citrix Cloud API region to connect to. Defaults to 'eu'.
+
+.EXAMPLE
+    PS C:\> # Cloud: Connect using an existing or new Citrix SDK session
+    PS C:\> Connect-WemApi -CustomerId "mycustomerid"
+
     .EXAMPLE
-        PS C:\> # Method 2: Connect using an existing Citrix SDK session
-        PS C:\> Connect-WemApi -CustomerId "mycustomerid" -UseSdkAuthentication
+    PS C:\> # Cloud: Connect using API credentials
+    PS C:\> $SecPassword = ConvertTo-SecureString "myclientsecret" -AsPlainText -Force
+    PS C:\> Connect-WemApi -CustomerId "ABCDEFG123" -ClientId "myclientid" -ClientSecret $SecPassword
 
-        Uses the token from `Get-XDAuthentication` to establish the session.
-    .EXAMPLE
-        PS C:\> # Method 1: Connect using API credentials (interactive prompt)
-        PS C:\> Connect-WemApi -CustomerId "mycustomerid"
+.EXAMPLE
+    PS C:\> # On-Premises: Connect using a credential object
+    PS C:\> $Cred = Get-Credential
+    PS C:\> Connect-WEMApi -WEMServer "http://wem.corp.local" -Credential $Cred
 
-        Prompts for Client ID and Client Secret via a secure dialog box and connects.
-    .NOTES
-        Version:        1.2
-        Author:         John Billekens Consultancy
-        Co-Author:      Gemini
-        Creation Date:  2025-08-05
-    #>
+.NOTES
+    Version:        1.4
+    Author:         John Billekens Consultancy
+    Co-Author:      Gemini
+    Creation Date:  2025-08-05
+#>
     [CmdletBinding(DefaultParameterSetName = 'Sdk')]
     param(
-        [Parameter(ParameterSetName = 'ApiCredentials', Mandatory = $true)]
-        [Parameter(ParameterSetName = 'Sdk', Mandatory = $true)]
+        # --- Cloud Parameters ---
+        [Parameter(Mandatory = $true, ParameterSetName = 'ApiCredentials')]
+        [Parameter(Mandatory = $false, ParameterSetName = 'Sdk')]
         [string]$CustomerId,
 
-        [Parameter(ParameterSetName = 'ApiCredentials', Mandatory = $false)]
+        [Parameter(Mandatory = $false, ParameterSetName = 'ApiCredentials')]
         [string]$ClientId,
 
-        [Parameter(ParameterSetName = 'ApiCredentials', Mandatory = $false)]
+        [Parameter(Mandatory = $false, ParameterSetName = 'ApiCredentials')]
         [System.Security.SecureString]$ClientSecret,
 
-        [Parameter(ParameterSetName = 'Sdk', Mandatory = $true)]
-        [switch]$UseSdkAuthentication,
+        [Parameter(Mandatory = $false, ParameterSetName = 'ApiCredentials')]
+        [Parameter(Mandatory = $false, ParameterSetName = 'Sdk')]
+        [ValidateSet("eu", "us", "jp")]
+        [string]$ApiRegion = "eu",
 
-        [Parameter(ParameterSetName = 'OnPrem', Mandatory = $true)]
-        [Parameter(ParameterSetName = 'OnPremCredential', Mandatory = $true)]
-        [URI]$WEMServer,
-
-        [Parameter(ParameterSetName = 'OnPrem', Mandatory = $true)]
-        [string]$Domain,
-
-        [Parameter(ParameterSetName = 'OnPrem', Mandatory = $true)]
-        [string]$Username,
-
-        [Parameter(ParameterSetName = 'OnPrem', Mandatory = $true)]
-        [SecureString]$Password,
-
-        [Parameter(ParameterSetName = 'OnPremCredential', Mandatory = $true)]
-        [System.Management.Automation.PSCredential]
-        [System.Management.Automation.Credential()]$Credential,
-
-
-        [Parameter(ParameterSetName = 'OnPrem', Mandatory = $true)]
-        [Parameter(ParameterSetName = 'OnPremCredential', Mandatory = $true)]
-        [switch]$OnPrem
-
-    )
-    <#
-https://developer-docs.citrix.com/en-us/workspace-environment-management/workspace-environment-management-rest-apis/overview
-
-#>
-    if ($PSCmdlet.ParameterSetName -eq 'OnPrem' -or $PSCmdlet.ParameterSetName -eq 'OnPremCredential') {
-        if ($PSCmdlet.ParameterSetName -eq 'OnPrem') {
-            Write-Verbose "Logging on to the Wem Server with specified Username and Password"
-            [PSCredential]$Credential = New-Object System.Management.Automation.PSCredential ($Username, $Password)
-        } else {
-            Write-Verbose "Logging on to the Wem Server with specified Credential"
-        }
-        $uri = "$($WEMServer.Scheme)://$($WEMServer.Host)/services/wem/onPrem/LogIn"
-
-        # Create base64-encoded Basic Auth header
-        if ([String]::IsNullOrEmpty($($credential.GetNetworkCredential().Domain)) -and $credential.GetNetworkCredential().UserName -like "*@*") {
-            $Username, $Domain = $credential.GetNetworkCredential().UserName -split "@"
-            Write-Verbose "Splitting username on @"
-        } elseif ([String]::IsNullOrEmpty($($credential.GetNetworkCredential().Domain)) -and $credential.GetNetworkCredential().UserName -like "*\*") {
-            $Domain, $Username = $credential.GetNetworkCredential().UserName -split "\"
-            Write-Verbose "Splitting username on \"
-        } else {
-            $Username = $credential.GetNetworkCredential().UserName
-            $Domain = $credential.GetNetworkCredential().Domain
-        }
-        if ($PSCmdlet.ParameterSetName -eq 'OnPrem' -and [String]::IsNullOrEmpty($Domain)) {
-            throw "No valid domain name detected, please specify the domain name correctly, e.g. -Domain domain.local"
-        }
-        if ($PSCmdlet.ParameterSetName -eq 'OnPremCredential' -and [String]::IsNullOrEmpty($Domain)) {
-            throw "No valid domain name detected, please specify the domain name correctly, e.g. user@domain.local or DOMAIN\USER as username"
-        }
-
-        $authString = "$Domain\$Username`:$($Credential.GetNetworkCredential().Password)"
-        Write-Verbose "Creating login for `"$Domain\$Username`:**********`""
-        $bytes = [System.Text.Encoding]::ASCII.GetBytes($authString)
-        $base64Auth = [Convert]::ToBase64String($bytes)
-
-        # Set up session and headers
-        $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
-        $session.UserAgent = "PowerShell/5.1 (Windows NT 10.0; Win64; x64) CitrixWEMClient/1.0"
-
-        $headers = @{
-            "Accept"        = "application/json"
-            "Authorization" = "basic $base64Auth"
-        }
-
-        try {
-            Write-Verbose "Attempting to log on"
-            $response = Invoke-WebRequest -UseBasicParsing -Uri $uri -Method POST -WebSession $session -Headers $headers
-
-            if ($response.StatusCode -eq 200 -and $response.Content) {
-                $json = $response.Content | ConvertFrom-Json
-
-                if ($json -and $json.SessionId) {
-                    Write-Verbose "WEM session established: $($json.SessionId)"
-                    $script:WemApiConnection.CustomerId = ""
-                    $script:WemApiConnection.IsOnPrem = $true
-                    $script:WemApiConnection.WebSession = $session
-                    $script:WemApiConnection.BearerToken = "session $($json.SessionId)"
-                    $script:WemApiConnection.BaseUrl = "$($WEMServer.Scheme)://$($WEMServer.Host)"
+        # --- On-Premises Parameters ---
+        [Parameter(Mandatory = $true, ParameterSetName = 'OnPremCredential')]
+        [ValidateScript({
+                if ($_ -match '^(https?)://') {
+                    return $true
                 } else {
-                    Write-Warning "No session ID found in response."
-                    return $json
+                    throw "Invalid format! Please provide a valid address. E.g. https://wemserver.domain.local"
                 }
-            } else {
-                Write-Warning "Login failed: HTTP $($response.StatusCode)"
-            }
-        } catch {
-            Write-Error "Error during WEM login: $_"
-            Disconnect-WEMApi
-        }
-    } elseif ($PSCmdlet.ParameterSetName -eq 'Sdk') {
-        # Logic for the SDK Authentication method
-        Write-Verbose "Attempting to connect using Citrix SDK Authentication."
+            })]
+        [uri]$WEMServer,
 
-        # 1. Check if the required module is available
-        if (-not (Get-Module -ListAvailable -Name 'Citrix.PoshSdkProxy.Commands')) {
-            throw "The 'Citrix.PoshSdkProxy.Commands' module is not installed. Please install the Citrix PowerShell SDK to use this authentication method."
-        }
+        [Parameter(Mandatory = $true, ParameterSetName = 'OnPremCredential')]
+        [System.Management.Automation.PSCredential]
+        [System.Management.Automation.Credential()]$Credential = [System.Management.Automation.PSCredential]::Empty
+    )
 
-        try {
-            # 2. Get the authentication context from the SDK
-            try {
-                $ApiCredentials = Get-XDCredentials -ErrorAction Stop`
-                Write-Verbose "Using existing Citrix SDK session for Customer ID: $CustomerId."
-            } catch {
-                Write-Verbose "No existing session found for Customer ID: $CustomerId. Attempting to authenticate."
-            }
-            if (-not $ApiCredentials) {
-                Write-Verbose "Authenticating with Citrix DaaS service for Customer ID: $CustomerId."
-                Get-XDAuthentication -CustomerId $CustomerId -ErrorAction Stop
-                $ApiCredentials = Get-XDCredentials -ErrorAction Stop
-            }
-            if (-not $ApiCredentials.BearerToken) {
-                throw "Could not retrieve a valid Bearer Token from Get-XDAuthentication. Please ensure you are authenticated with the Citrix DaaS service."
-            }
-
-            # 3. Store the connection details for other functions to use
-            $script:WemApiConnection.CustomerId = $CustomerId
-            $script:WemApiConnection.BearerToken = $ApiCredentials.BearerToken
-            $script:WemApiConnection.IsOnPrem = $false
-
-
-            Write-Verbose "Successfully connected using Citrix SDK session for Customer ID: $($script:WemApiConnection.CustomerId)"
-        } catch {
-            Write-Error "Failed to authenticate using Get-XDAuthentication. Please ensure you have an active session with the Citrix DaaS service."
-            Write-Error $_.Exception.Message
-            Disconnect-WEMApi
-        }
+    $LocalConnection = [PSCustomObject]@{
+        IsOnPrem     = $false
+        BaseUrl      = $null
+        CustomerId   = $null
+        BearerToken  = $null
+        WebSession   = $null
+        CloudProfile = $null
     }
-    # Logic for the API Credentials method (the original logic)
-    else {
-        Write-Verbose "Attempting to connect using API Credentials."
 
-        # If credentials are not provided as parameters, prompt the user interactively.
-        if (-not $PSBoundParameters.ContainsKey('ClientId') -or -not $PSBoundParameters.ContainsKey('ClientSecret')) {
-            Write-Verbose "Client ID or Secret not provided, prompting for credentials."
-            $CredentialPopup = Get-Credential -UserName $ClientId -Message "Enter Citrix Cloud API Client ID and Secret"
-            $ClientId = $CredentialPopup.UserName
-            $ClientSecret = $CredentialPopup.Password
-        }
-
-        $Uri = "https://api-eu.cloud.com/cctrustoauth2/root/tokens/clients"
-        $Body = @{
-            clientId     = $ClientId
-            clientSecret = ([System.Runtime.InteropServices.Marshal]::PtrToStringAuto([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($ClientSecret)))
-        }
-
-        try {
-            Write-Verbose "Requesting bearer token from Citrix Cloud API..."
-            $TokenResponse = Invoke-RestMethod -Uri $Uri -Method Post -Body (ConvertTo-Json -InputObject $Body) -ContentType "application/json" -ErrorAction Stop
-
-            $script:WemApiConnection.CustomerId = $CustomerId
-            $script:WemApiConnection.BearerToken = "CWSAuth bearer=$($TokenResponse.token)"
-            $script:WemApiConnection.IsOnPrem = $false
-
-            Write-Host "Successfully connected using API Credentials for Customer ID: $($script:WemApiConnection.CustomerId)"
-        } catch {
-            Write-Error "Failed to authenticate with Citrix Cloud. Please check your API credentials and permissions."
-            Write-Error $_.Exception.Message
+    try {
+        # Disconnect any existing session before creating a new one
+        if ($script:WemApiConnection) {
             Disconnect-WEMApi
         }
+
+        if ($PSCmdlet.ParameterSetName -eq 'OnPremCredential') {
+            # --- On-Premises Logic ---
+            Write-Verbose "Attempting to connect to On-Premises WEM Server: $($WEMServer)"
+            $LocalConnection.IsOnPrem = $true
+            $LocalConnection.BaseUrl = "$($WEMServer.Scheme)://$($WEMServer.Host)"
+
+            $NetCredential = $Credential.GetNetworkCredential()
+            $Username = $NetCredential.UserName
+            $Domain = $NetCredential.Domain
+
+            if ([string]::IsNullOrWhiteSpace($Domain)) {
+                if ($Username -like "*\*") { $Domain, $Username = $Username.Split('\', 2) }
+                elseif ($Username -like "*@*") { $Username, $Domain = $Username.Split('@', 2) }
+                else { throw "Username must be in 'DOMAIN\user' or 'user@domain.com' format if domain is not specified in the credential." }
+            }
+
+            $AuthString = "$Domain\$Username`:$($NetCredential.Password)"
+            $Bytes = [System.Text.Encoding]::ASCII.GetBytes($AuthString)
+            $Base64Auth = [Convert]::ToBase64String($bytes)
+
+            $LocalConnection.WebSession = New-Object Microsoft.PowerShell.Commands.WebRequestSession
+            $InitialBearerToken = "basic $base64Auth"
+
+            $LoginUri = "$($LocalConnection.BaseUrl)/services/wem/onPrem/LogIn"
+            $LoginHeaders = @{ "Accept" = "application/json"; "Authorization" = $InitialBearerToken }
+            $LoginResponse = Invoke-WebRequest -UseBasicParsing -Uri $LoginUri -Method POST -WebSession $LocalConnection.WebSession -Headers $LoginHeaders
+            $LoginJson = $LoginResponse.Content | ConvertFrom-Json
+
+            if (-not $LoginJson.SessionId) {
+                throw "On-Premises login succeeded but did not return a Session ID."
+            }
+
+            $LocalConnection.BearerToken = "session $($LoginJson.SessionId)"
+            Write-Host "Successfully connected to On-Premises WEM Server: $($WEMServer.Host)"
+        } else {
+            # --- Cloud Logic ---
+            $LocalConnection.BaseUrl = "https://{0}-api-webconsole.wem.cloud.com" -f $ApiRegion
+            $LocalConnection.CustomerId = "$CustomerId"
+
+            if ($PSCmdlet.ParameterSetName -eq 'Sdk') {
+                # YOUR CORRECTED SDK LOGIC
+                if (-not (Get-Module -ListAvailable -Name 'Citrix.PoshSdkProxy.Commands')) {
+                    throw "Module 'Citrix.PoshSdkProxy.Commands' is not installed."
+                }
+
+                $ApiCredentials = $null
+                try {
+                    $ApiCredentials = Get-XDCredentials -ErrorAction Stop
+                    Write-Verbose "Using existing cached Citrix SDK session for Customer ID: $CustomerId."
+                } catch {
+                    Write-Verbose "No existing cached session found. Attempting to authenticate via Get-XDAuthentication."
+                    Get-XDAuthentication -CustomerId $CustomerId -ErrorAction Stop
+                    $ApiCredentials = Get-XDCredentials -ErrorAction Stop
+                }
+
+                if (-not $ApiCredentials.BearerToken) {
+                    throw "Could not retrieve a valid Bearer Token from the Citrix SDK."
+                }
+                if ("$($ApiCredentials.BearerToken)" -notlike "CWSAuth bearer=*") {
+                    $LocalConnection.BearerToken = "CWSAuth bearer=$($ApiCredentials.BearerToken)"
+                    $LocalConnection.CustomerId = "$($ApiCredentials.CustomerId))"
+                    $LocalConnection.CloudProfile = $ApiCredentials.ProfileName
+                } else {
+                    $LocalConnection.BearerToken = $ApiCredentials.BearerToken
+                    $LocalConnection.CustomerId = "$($ApiCredentials.CustomerId)"
+                    $LocalConnection.CloudProfile = $ApiCredentials.ProfileName
+                }
+                Write-Host "Successfully connected using Citrix SDK session for Customer ID: $($LocalConnection.CustomerId) in region $($ApiRegion.ToUpper())"
+            } else {
+                # ApiCredentials
+                Write-Verbose "Attempting to connect using API Credentials."
+                if (-not $PSBoundParameters.ContainsKey('ClientId') -or -not $PSBoundParameters.ContainsKey('ClientSecret')) {
+                    $CredentialPopup = Get-Credential -UserName $ClientId -Message "Enter Citrix Cloud API Client ID and Secret"
+                    $ClientId = $CredentialPopup.UserName
+                    $ClientSecret = $CredentialPopup.Password
+                }
+
+                $Uri = "https://api-{0}.cloud.com/cctrustoauth2/root/tokens/clients" -f $ApiRegion
+                $Body = @{
+                    clientId     = $ClientId
+                    clientSecret = ([System.Runtime.InteropServices.Marshal]::PtrToStringAuto([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($ClientSecret)))
+                }
+                $TokenResponse = Invoke-RestMethod -Uri $Uri -Method Post -Body (ConvertTo-Json -InputObject $Body) -ContentType "application/json"
+                if ("$($TokenResponse.token)" -notlike "CWSAuth bearer=*") {
+                    $LocalConnection.BearerToken = "CWSAuth bearer=$($TokenResponse.token)"
+                } else {
+                    $LocalConnection.BearerToken = $($TokenResponse.token)
+                }
+
+                $LocalConnection.BearerToken = "CWSAuth bearer=$($TokenResponse.token)"
+                Write-Host "Successfully connected using API Credentials for Customer ID: $($LocalConnection.CustomerId) in region $($ApiRegion.ToUpper())"
+            }
+        }
+
+        $script:WemApiConnection = $LocalConnection
+        try {
+            Set-WEMActiveDomain
+        } catch {
+            Write-Verbose "Could not set active WEM AD Domain: $($_.Exception.Message)"
+            Write-Warning "No active WEM AD Domain has been set. Please use Set-WEMActiveDomain to set one."
+        }
+        Write-Information -MessageData "Connected to WEM. You can use Set-WemActiveConfigurationSite to set the active Configuration Set."
+    } catch {
+        Write-Error "Failed to connect to WEM API. Details: $($_.Exception.Message)"
+        throw
     }
 }
