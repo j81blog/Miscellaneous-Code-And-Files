@@ -1,61 +1,165 @@
 <#
 .SYNOPSIS
-    Creates a detailed HTML report of folder permissions with visually aligned tables.
+    Creates a detailed HTML report of folder permissions, with an optional audit mode that details why a folder deviates.
 
 .DESCRIPTION
-    This function scans the direct subdirectories of a specified path and generates a comprehensive HTML report.
-    The report includes folder details like Owner, Last Modified Date, and Inheritance status.
-    Permissions are displayed in a detailed, nested table for clarity, showing the user/group,
-    the specific right, its scope ("Applies To"), and the type (Allow/Deny).
+    This function has two modes, determined by the parameter set used:
+    1. Report Mode (Default): Scans subdirectories and generates a comprehensive HTML report of all permissions.
+    2. Audit Mode: Compares directory permissions against a specified JSON template. The generated report then shows only the
+       deviating folders and includes a new column detailing the specific reasons for deviation (missing or unexpected permissions).
 
 .PARAMETER Path
     The full path to the parent directory containing the folders to be scanned (e.g., "D:\HomeFolders").
-    This parameter is mandatory.
 
 .PARAMETER FilePath
     The full path where the generated HTML report file will be saved (e.g., "C:\Reports\Permissions.html").
-    This parameter is mandatory.
+
+.PARAMETER TemplatePath
+    (Audit Mode) The full path to a JSON file containing the expected permissions template.
 
 .EXAMPLE
-    PS C:\> New-FolderPermissionHtmlReport -Path "D:\HomeFolders" -FilePath "C:\Temp\HomeFolderReport.html"
+    # Example 1: Generate a full report of all subfolders.
+    New-FolderPermissionHtmlReport -Path "D:\HomeFolders" -FilePath "C:\Temp\FullReport.html"
 
-    This command will scan all subfolders in "D:\HomeFolders" and create a visually aligned HTML report file
-    named "HomeFolderReport.html" in "C:\Temp\".
+.EXAMPLE
+    # Example 2: Generate an audit report using a template with the dynamic %%FolderName%% token.
+    New-FolderPermissionHtmlReport -Path "D:\HomeFolders" -FilePath "C:\Temp\AuditReport.html" -TemplatePath "C:\Templates\homefolder_template.json"
+
+.EXAMPLE
+    # Example 3: Content for the 'permissions_template.json' file used in Audit Mode.
+    # Save the content below to a .json file and provide the path to the -TemplatePath parameter.
+
+    {
+        "Description": "Standard permissions for user home folders with dynamic user token.",
+        "RequiredPermissions": [
+            {
+                "Principal": "NT AUTHORITY\\SYSTEM",
+                "Rights": "FullControl",
+                "Type": "Allow",
+                "AppliesTo": "This folder, subfolders and files"
+            },
+            {
+                "Principal": "BUILTIN\\Administrators",
+                "Rights": "FullControl",
+                "Type": "Allow",
+                "AppliesTo": "This folder, subfolders and files"
+            },
+            {
+                "Principal": "YOURDOMAIN\\%%FolderName%%",
+                "Rights": "Modify",
+                "Type": "Allow",
+                "AppliesTo": "This folder, subfolders and files"
+            }
+        ]
+    }
 
 .NOTES
-    Version : 2.3
+    Version : 4.2
     Author  : John Billekens Consultancy
     CoAuthor: Gemini (Refactored/Documentation)
-    Date    : 2025-08-08
+    Date    : 2025-08-11
 #>
 function New-FolderPermissionHtmlReport {
-    [CmdletBinding()]
+    [CmdletBinding(DefaultParameterSetName = 'ReportSet')]
     param (
-        [Parameter(
-            Mandatory = $true,
-            Position = 0
-        )]
-        [ValidateScript({
-            if (-not (Test-Path $_ -PathType Container)) {
-                throw "Path not found or is not a directory: $_"
-            }
-            return $true
-        })]
+        [Parameter(ParameterSetName = 'ReportSet', Mandatory = $true, Position = 0)]
+        [Parameter(ParameterSetName = 'AuditSet', Mandatory = $true, Position = 0)]
+        [ValidateScript({ if (-not (Test-Path $_ -PathType Container)) { throw "Path not found or is not a directory: $_" } return $true })]
         [string]$Path,
-
-        [Parameter(
-            Mandatory = $true,
-            Position = 1
-        )]
+        [Parameter(ParameterSetName = 'ReportSet', Mandatory = $true, Position = 1)]
+        [Parameter(ParameterSetName = 'AuditSet', Mandatory = $true, Position = 1)]
         [ValidatePattern('\.html?$')]
-        [string]$FilePath
+        [string]$FilePath,
+        [Parameter(ParameterSetName = 'AuditSet', Mandatory = $true)]
+        [ValidateScript({ if (-not (Test-Path $_ -PathType Leaf)) { throw "Template file not found: $_" } return $true })]
+        [string]$TemplatePath
     )
 
     begin {
+        # Helper functions
+        function Convert-RightToFriendlyName {
+            param (
+                [string]$RightEnumString
+            )
+            switch ($RightEnumString) {
+                "FullControl" { return "Full control" }
+                "Modify, Synchronize" { return "Modify" }
+                "Modify" { return "Modify" }
+                "ReadAndExecute, Synchronize" { return "Read & execute" }
+                "ReadAndExecute" { return "Read & execute" }
+                "Read, Synchronize" { return "Read" }
+                "Read" { return "Read" }
+                "Write, Synchronize" { return "Write" }
+                "Write" { return "Write" }
+                "ListDirectory" { return "List folder contents" }
+                "Synchronize" { return "Synchronize" }
+                "268435456" { return "Full control (Subonly)" }
+                "1179817" { return "Read & execute" }
+                "1179785" { return "Read" }
+                "278" { return "Write" }
+                "2032127" { return "Full control" }
+                "1245631" { return "Modify" }
+                "270467583" { return "Read & execute, Synchronize" }
+                default { return $RightEnumString }
+            }
+        }
+        function Convert-AppliesToFriendlyName {
+            param (
+                [string]$FlagsString
+            )
+            switch ($FlagsString) {
+                "None" { return "This folder only" }
+                "ContainerInherit" { return "This folder and subfolders" }
+                "ObjectInherit" { return "This folder and files" }
+                "ContainerInherit, ObjectInherit" { return "This folder, subfolders and files" }
+                "InheritOnly, ContainerInherit" { return "Subfolders only" }
+                "InheritOnly, ObjectInherit" { return "Files only" }
+                "InheritOnly, ContainerInherit, ObjectInherit" { return "Subfolders and files only" }
+                default { return $FlagsString }
+            }
+        }
+        # NEW: Function to find the source of an inherited ACE
+        function Get-InheritanceSource {
+            param (
+                [string]$ItemPath,
+                [System.Security.AccessControl.FileSystemAccessRule]$AccessRule,
+                [hashtable]$AclCache
+            )
+            $ParentPath = Split-Path -Path $ItemPath -Parent
+            while ($ParentPath) {
+                try {
+                    if (-not $AclCache.ContainsKey($ParentPath)) {
+                        $AclCache[$ParentPath] = Get-Acl -Path $ParentPath -ErrorAction Stop
+                    }
+                    $ParentAcl = $AclCache[$ParentPath]
+                    $SourceAce = $ParentAcl.Access | Where-Object {
+                        $_.IdentityReference -eq $AccessRule.IdentityReference -and
+                        $_.AccessControlType -eq $AccessRule.AccessControlType -and
+                        $_.InheritanceFlags -ne 'None'
+                    }
+                    if ($SourceAce) { return $ParentPath }
+                } catch { return "&lt;source not accessible&gt;" }
+                $ParentPath = Split-Path -Path $ParentPath -Parent
+            }
+            return "&lt;source unknown&gt;"
+        }
+
+        $IsAuditMode = ($PSCmdlet.ParameterSetName -eq 'AuditSet')
+        $TemplatePermissions = @()
+
+        if ($IsAuditMode) {
+            try {
+                $TemplateContent = Get-Content -Path $TemplatePath -Raw
+                $TemplatePermissions = (ConvertFrom-Json -InputObject $TemplateContent).RequiredPermissions
+            } catch { throw "Failed to read or parse the template file '$TemplatePath'. Error: $($_.Exception.Message)" }
+        }
+
+        # --- CSS and other one-time setup ---
         $CssStyle = @"
 <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; margin: 40px; }
     h1, h2 { color: #2c3e50; }
+    h1 .mode { font-size: 0.6em; color: #95a5a6; vertical-align: middle; }
     table { border-collapse: collapse; width: 100%; box-shadow: 0 2px 3px rgba(0,0,0,0.1); }
     th, td { border: 1px solid #ddd; padding: 12px; text-align: left; vertical-align: top; word-break: break-word; }
     th { background-color: #3498db; color: white; }
@@ -66,128 +170,126 @@ function New-FolderPermissionHtmlReport {
     .nested-table th { background-color: #95a5a6; }
     .nested-table td { font-size: 0.9em; border-style: none solid; }
     .nested-table tr:last-child td { border-bottom-style: none; }
-    .col-usergroup { width: 35%; }
-    .col-right     { width: 20%; }
-    .col-appliesto { width: 35%; }
+    .deviation-list { margin: 0; padding-left: 20px; font-size: 0.9em; }
+    .deviation-list li.missing { color: #c0392b; }
+    .deviation-list li.unexpected { color: #27ae60; }
+    /* UPDATED: Column widths adjusted for new column */
+    .col-usergroup { width: 25%; }
+    .col-right     { width: 15%; }
+    .col-appliesto { width: 25%; }
+    .col-inherited { width: 25%; }
     .col-type      { width: 10%; }
 </style>
 "@
         $ReportDate = Get-Date -Format "dddd, MMMM d, yyyy HH:mm"
-
-        # Using a StringBuilder for performance.
         $BodyContentBuilder = [System.Text.StringBuilder]::new()
-
-        # Get the direct subdirectories
+        $AclCache = @{} # NEW: Initialize the ACL cache for performance.
         $SubFolders = Get-ChildItem -Path $Path -Directory
+    }
 
+    process {
         foreach ($Folder in $SubFolders) {
             try {
                 $Acl = Get-Acl -Path $Folder.FullName -ErrorAction Stop
+                $AclCache[$Folder.FullName] = $Acl # Add current folder's ACL to cache
                 $InheritanceEnabled = -not ($Acl.AreAccessRulesProtected)
+                $IsDeviant = $false
+                $DeviationReasonHtml = ''
 
-                # --- Build the nested HTML table for permissions ---
-                $PermissionsRowsBuilder = [System.Text.StringBuilder]::new()
-                foreach ($AccessRule in $Acl.Access) {
-                    $FriendlyRight = switch ($AccessRule.FileSystemRights.ToString()) {
-                        "FullControl"                   { "Full control" }
-                        "Modify, Synchronize"           { "Modify" }
-                        "Modify"                        { "Modify" }
-                        "ReadAndExecute, Synchronize"   { "Read & execute" }
-                        "ReadAndExecute"                { "Read & execute" }
-                        "Read, Synchronize"             { "Read" }
-                        "Read"                          { "Read" }
-                        "Write, Synchronize"            { "Write" }
-                        "Write"                         { "Write" }
-                        "ListDirectory"                 { "List folder contents" }
-                        default                         { $AccessRule.FileSystemRights.ToString() }
+                if ($IsAuditMode) {
+                    # --- Audit Logic (Normalized) ---
+                    $ActualAces = $Acl.Access | ForEach-Object { "$($_.IdentityReference -replace '\\', '\\')|$($_.FileSystemRights.ToString().ToLower())|$($_.AccessControlType.ToString().ToLower())|$(Convert-AppliesToFriendlyName -FlagsString $_.InheritanceFlags.ToString())" }
+                    $ExpectedAces = $TemplatePermissions | ForEach-Object { "$($($_.Principal -replace '%%FolderName%%', $Folder.Name) -replace '\\', '\\')|$($_.Rights.ToLower())|$($_.Type.ToLower())|$($_.AppliesTo)" }
+
+                    $Differences = Compare-Object -ReferenceObject $ExpectedAces -DifferenceObject $ActualAces -CaseSensitive # Be explicit
+                    if ($Differences) {
+                        $IsDeviant = $true
+
+                        $ReasonObjects = @()
+                        foreach ($Difference in $Differences) {
+                            $Parts = $Difference.InputObject -split '\|'
+                            $ReasonObjects += [PSCustomObject]@{
+                                Principal     = $Parts[0]
+                                Right         = Convert-RightToFriendlyName -RightEnumString $Parts[1]
+                                DeviationType = $Difference.SideIndicator
+                            }
+                        }
+
+                        $SortedReasons = $ReasonObjects | Sort-Object -Property Principal
+
+                        $ReasonHtmlList = $SortedReasons | ForEach-Object {
+                            if ($_.DeviationType -eq '<=') {
+                                "<li class='missing'><b>Missing:</b> '$($_.Principal)' with right '<b>$($_.Right)</b>'.</li>"
+                            } else {
+                                # '=>'
+                                "<li class='unexpected'><b>Unexpected:</b> '$($_.Principal)' with right '<b>$($_.Right)</b>'.</li>"
+                            }
+                        }
+                        $DeviationReasonHtml = "<ul class='deviation-list'>$($ReasonHtmlList -join '')</ul>"
                     }
-
-                    $AppliesTo = switch ($AccessRule.InheritanceFlags.ToString()) {
-                        "None"                                  { "This folder only" }
-                        "ContainerInherit"                      { "This folder and subfolders" }
-                        "ObjectInherit"                         { "This folder and files" }
-                        "ContainerInherit, ObjectInherit"       { "This folder, subfolders and files" }
-                        "InheritOnly, ContainerInherit"         { "Subfolders only" }
-                        "InheritOnly, ObjectInherit"            { "Files only" }
-                        "InheritOnly, ContainerInherit, ObjectInherit" { "Subfolders and files only" }
-                        default                                 { $AccessRule.InheritanceFlags.ToString() }
-                    }
-
-                    [void]$PermissionsRowsBuilder.AppendLine(
-                        "<tr><td class='col-usergroup'>$($AccessRule.IdentityReference)</td><td class='col-right'>$($FriendlyRight)</td><td class='col-appliesto'>$($AppliesTo)</td><td class='col-type'>$($AccessRule.AccessControlType)</td></tr>"
-                    )
                 }
 
-                $PermissionsHtml = "<table class='nested-table'><tr><th class='col-usergroup'>User / Group</th><th class='col-right'>Right</th><th class='col-appliesto'>Applies To</th><th class='col-type'>Type</th></tr>$($PermissionsRowsBuilder.ToString())</table>"
-                # --- End of nested table ---
+                if (-not $IsAuditMode -or $IsDeviant) {
+                    # --- HTML Row Generation ---
+                    $PermissionsRowsBuilder = [System.Text.StringBuilder]::new()
+                    foreach ($AccessRule in $Acl.Access) {
+                        $FriendlyRight = Convert-RightToFriendlyName -RightEnumString $AccessRule.FileSystemRights.ToString()
+                        $AppliesTo = Convert-AppliesToFriendlyName -FlagsString $AccessRule.InheritanceFlags.ToString()
 
-                # Add a row for the main folder to the body content
-                [void]$BodyContentBuilder.AppendLine(
-                    "<tr><td>$($Folder.FullName)</td><td>$($Acl.Owner)</td><td>$($Folder.LastWriteTime)</td><td>$($InheritanceEnabled)</td><td>$($PermissionsHtml)</td></tr>"
-                )
-            }
-            catch {
-                # Add a row indicating an error for this folder
-                [void]$BodyContentBuilder.AppendLine(
-                    "<tr><td>$($Folder.FullName)</td><td colspan='4' style='color: red;'>Error processing folder: $($_.Exception.Message)</td></tr>"
-                )
+                        # NEW: Determine the value for the "Inherited From" column.
+                        $InheritedFrom = if ($AccessRule.IsInherited) {
+                            Get-InheritanceSource -ItemPath $Folder.FullName -AccessRule $AccessRule -AclCache $AclCache
+                        } else {
+                            "&lt;none (this folder)&gt;"
+                        }
+                        # UPDATED: Added new <td> for Inherited From
+                        [void]$PermissionsRowsBuilder.AppendLine("<tr><td class='col-usergroup'>$($AccessRule.IdentityReference)</td><td class='col-right'>$($FriendlyRight)</td><td class='col-appliesto'>$($AppliesTo)</td><td class='col-inherited'>$($InheritedFrom)</td><td class='col-type'>$($AccessRule.AccessControlType)</td></tr>")
+                    }
+                    # UPDATED: Added new <th> for Inherited From
+                    $PermissionsHtml = "<table class='nested-table'><tr><th class='col-usergroup'>User / Group</th><th class='col-right'>Right</th><th class='col-appliesto'>Applies To</th><th class='col-inherited'>Inherited From</th><th class='col-type'>Type</th></tr>$($PermissionsRowsBuilder.ToString())</table>"
+                    [void]$BodyContentBuilder.AppendLine("<tr><td>$($Folder.FullName)</td><td>$($Acl.Owner)</td><td>$($Folder.LastWriteTime)</td><td>$($InheritanceEnabled)</td><td>$($DeviationReasonHtml)</td><td>$($PermissionsHtml)</td></tr>")
+                }
+            } catch {
+                [void]$BodyContentBuilder.AppendLine("<tr><td>$($Folder.FullName)</td><td colspan='5' style='color: red;'>Error processing folder: $($_.Exception.Message)</td></tr>")
             }
         }
+    }
 
-        # Assemble the final HTML content
+    end {
+        # --- Final HTML Assembly ---
+        $ReportTitle = "Folder Permissions Report"
+        if ($IsAuditMode) {
+            $ReportTitle += " <span class='mode'>(Audit Mode - Deviations Only)</span>"
+        }
         $HtmlContent = @"
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Folder Permissions Report</title>
-    $($CssStyle)
-</head>
+<head><meta charset="UTF-8"><title>Folder Permissions Report</title>$($CssStyle)</head>
 <body>
-    <div class='report-header'>
-        <h1>Folder Permissions Report</h1>
-        <p><strong>Scanned Path:</strong> $($Path)</p>
-        <p><strong>Report Generated:</strong> $($ReportDate)</p>
-    </div>
-    <table>
-        <thead>
-            <tr>
-                <th>Folder Name</th>
-                <th>Owner</th>
-                <th>Last Modified</th>
-                <th>Inheritance Enabled</th>
-                <th>Permissions</th>
-            </tr>
-        </thead>
-        <tbody>
-            $($BodyContentBuilder.ToString())
-        </tbody>
-    </table>
+<div class='report-header'><h1>$($ReportTitle)</h1><p><strong>Scanned Path:</strong> $($Path)</p><p><strong>Report Generated:</strong> $($ReportDate)</p></div>
+<table>
+<thead><tr><th>Folder Name</th><th>Owner</th><th>Last Modified</th><th>Inheritance Enabled</th><th>Reason for Deviation</th><th>Advanced Permissions</th></tr></thead>
+<tbody>$($BodyContentBuilder.ToString())</tbody>
+</table>
 </body>
 </html>
 "@
-        # Save the report to the specified file
         try {
-            # Ensure the directory exists
             $Directory = Split-Path -Path $FilePath -Parent
             if (-not (Test-Path -Path $Directory)) {
                 New-Item -Path $Directory -ItemType Directory -Force | Out-Null
             }
-            # Write the HTML content to the file
             $HtmlContent | Out-File -FilePath $FilePath -Encoding UTF8 -ErrorAction Stop
             Write-Host "Successfully generated report: $FilePath" -ForegroundColor Green
-        }
-        catch {
-            Write-Error "Failed to save report to '$FilePath'. Error: $($_.Exception.Message)"
-        }
+        } catch { Write-Error "Failed to save report to '$FilePath'. Error: $($_.Exception.Message)" }
     }
 }
 
 # SIG # Begin signature block
 # MIImdwYJKoZIhvcNAQcCoIImaDCCJmQCAQExDzANBglghkgBZQMEAgEFADB5Bgor
 # BgEEAYI3AgEEoGswaTA0BgorBgEEAYI3AgEeMCYCAwEAAAQQH8w7YFlLCE63JNLG
-# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCBJKhwHE00U9SZD
-# eQAqwJTMOkOPD7vuSI7ypSUez79PqaCCIAowggYUMIID/KADAgECAhB6I67aU2mW
+# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCCgGDya2JKkVrgz
+# MqlpnXIDuJht8F1sTM89CwamIXVpvqCCIAowggYUMIID/KADAgECAhB6I67aU2mW
 # D5HIPlz0x+M/MA0GCSqGSIb3DQEBDAUAMFcxCzAJBgNVBAYTAkdCMRgwFgYDVQQK
 # Ew9TZWN0aWdvIExpbWl0ZWQxLjAsBgNVBAMTJVNlY3RpZ28gUHVibGljIFRpbWUg
 # U3RhbXBpbmcgUm9vdCBSNDYwHhcNMjEwMzIyMDAwMDAwWhcNMzYwMzIxMjM1OTU5
@@ -363,31 +465,31 @@ function New-FolderPermissionHtmlReport {
 # cnR1bSBDb2RlIFNpZ25pbmcgMjAyMSBDQQIQCDJPnbfakW9j5PKjPF5dUTANBglg
 # hkgBZQMEAgEFAKCBhDAYBgorBgEEAYI3AgEMMQowCKACgAChAoAAMBkGCSqGSIb3
 # DQEJAzEMBgorBgEEAYI3AgEEMBwGCisGAQQBgjcCAQsxDjAMBgorBgEEAYI3AgEV
-# MC8GCSqGSIb3DQEJBDEiBCBu3AX1Gw6cnTmsWwjCZgGVM30Qpo3JXL2668ZyM9Vp
-# jzANBgkqhkiG9w0BAQEFAASCAYAMAvQ8sQgWO0FhpbBozP5HIU8IGahXhlX3gbSE
-# 97HzYkkOdrCI+3l3AppvotXV7xhc+87PAo7jye2v4OdGnwFp2O75veWOMVKAaeHt
-# eahrTT1eQjspvJi8ws0j8pWNB/sCA2j2aMtkOhJPr9uIcJztYCqP2lQ6I6fcgudw
-# tk9ljJRc51lwgK2Jy4RrDCly27nv/uCwaSxWEu9X+2njCebW7VowxOVX2aBZ7gid
-# 0F92wK3acKKY9c3ohJQZ75rPE+3m6N5SR31QuL/s6d8jwaOPCXZalXG8202rRMnU
-# 8smXDjFmRSvFwl63SZ3ngBTen4yFsvcXhLs/W6UemcN4m5T+W8PiwztxFXZGZvPJ
-# tl/Vn7NcJTav2ZxpV0NCkl6uKbWzsv3UoTbw3WO9QHkxI2IfreX9LhN0tcqXgrep
-# IrJZ/bQ+dRvHq6YzsvT9snFDqWOB1XqV9+keySLrjJqD1D2ftgEl2Cr9irorlzZ5
-# zYOZ/8kaPduPYn66KgbNuJZSMkahggMjMIIDHwYJKoZIhvcNAQkGMYIDEDCCAwwC
+# MC8GCSqGSIb3DQEJBDEiBCBGzqRbgo0JiANXM4o6j6IrYOGuaL6985on2vhgkjwY
+# HzANBgkqhkiG9w0BAQEFAASCAYBOLjwiLq4WAmF9FTHIWPX7e5HIIP0cQSu9INln
+# J6cNV8NJvKWBWvh/I23DCvFi2U3Qb4ELKl3DL0ZgcAMPLmBIH65Z5g73qqYJeSBP
+# XWxIZ15L3fprsvQCkMr+GuR/3h27MW8R9vSVNJvweVYZFFaIibPOohKY/56JPy1q
+# Qce1zAJGQOabahPDAgS+5/IL28wgx7cCx32KUjoU2N/h89tufT28czfismAHabuT
+# ZqY/PujijiOOo+Upm6uQnohUiY7uiyQCySnKsSNdfIaY5L0SpalU4wRbAlUzYPAw
+# CK9cBwzMqbY5+KSVw5Lzm3fm6Q4Yr0emtGN5BG1xyaeXbEd1NbdJX/0baiJ+wltv
+# fmrGT8qfJcznxlk3n8b/qC1upjYIkk3OljAGXGaeM1E6TouefOexWxDQnxosxag1
+# TQDArrTPF4/UXfe7g2zEcZLpCZLhfQXQ/sYe0HkKlJc2ynGALdtfolLo9r2qOx17
+# pu/b0XK74miUDLpuuDnm8sn+qz6hggMjMIIDHwYJKoZIhvcNAQkGMYIDEDCCAwwC
 # AQEwajBVMQswCQYDVQQGEwJHQjEYMBYGA1UEChMPU2VjdGlnbyBMaW1pdGVkMSww
 # KgYDVQQDEyNTZWN0aWdvIFB1YmxpYyBUaW1lIFN0YW1waW5nIENBIFIzNgIRAKQp
 # O24e3denNAiHrXpOtyQwDQYJYIZIAWUDBAICBQCgeTAYBgkqhkiG9w0BCQMxCwYJ
-# KoZIhvcNAQcBMBwGCSqGSIb3DQEJBTEPFw0yNTA4MDgxODA1NDBaMD8GCSqGSIb3
-# DQEJBDEyBDBqT8yD4kDUzqZDudmJtwS0ehvkEXJTcf+4kfP02OW64+iSqmMIGajF
-# 1UbKBfiVaZkwDQYJKoZIhvcNAQEBBQAEggIACVNKM8hImHI0xL5oGPCegqZ5AYIA
-# larldHm2rea8hVj3Rc+7WnYncShInKCp1U/DJlzp8H1tecQVM/OtffswuRotG+8M
-# gfQFWZxvfg2pYrZxOnOSiPf21V8aK9Dhy/TnNw1HI6+R494fvHMFUbFyUl4HcoZ1
-# Vj+AC+Yb5Qfi1EEJgpj4X0DeRbMsRzah5T0FKfLRFAl3kgIkvBa9825tD5117YrI
-# YXC8JMQA/U+FT/AdzPovSujwMgZYo76niPfnAB+2lGiJpUbSHUqU0L/TxVM8rXz1
-# E6bhCRFdL6HiHrMJQrtXhsp/SX7Nr2xDS8p29JoMdE/dyXZi+4htjl6mq9bTo5mE
-# 1gwhjSIQREZ5fjEoZPBXkvs5AyahjAMf+inJ411Ju3lr0CEKdxY1jRtAvwDxGMwd
-# BNixn9FUySYv9BjT0CqrtYsTl0K7tiQjFFTGGqoPglJDwc3PlsX1OyoNLp1mdJte
-# nS3Y4fYOUcSc+sKdpRCd10L91Gl7eI1ZRJ5kHPoCzX2KN6abG32Lh8oUWrcnGRh+
-# erkYvg9ai2wMaDVOl5vkPLrJVHZ1aPu60XXlNWhKXTXcF8BdZJiAEXU3LMunjp00
-# 81x9T0JK2y+27EP3gAx8oHZoS76LiM12zzvX9ufDfGszvxwc8HuEfF3yBohFqylG
-# zLS9mSC6fyvZT1A=
+# KoZIhvcNAQcBMBwGCSqGSIb3DQEJBTEPFw0yNTA4MTEyMDI3MzdaMD8GCSqGSIb3
+# DQEJBDEyBDCM5B77c+6bDG1ehAWLGspoUa2z+mLtGU2AwwW49epFeJDArLtsk/3u
+# /iL6nAm1pQowDQYJKoZIhvcNAQEBBQAEggIAuBJsyW0/txCZ7rUqxYXJM8Uhj578
+# 7wL+QirWGND0a5t3XLW5Lh8+DzXLVGTObPhXNPh2kZLWMjF7zpDC7nktNq7rgQBK
+# flBDZiGbZTzqjp4R5KkPXaaYdrO6X1rJ5lxtpAZIOSv5alkgJvL5Zuin5BkULL1i
+# fcP/H1HzBGElIiRXcF5T7IqEqlfgKioHFzrFUDDWRYMoImyomUM9/yWyb67v9NtX
+# io6qqsL/nF3vLrK2KVS9PVeXucl2ubiqJ4yqFPny0svxvR4diduKKbJdVzYGbnS3
+# IfmUd2kedudf2pI9mml70lAxM028OVJ7o1Ncz/dtdH5MBNyF39FTq2OXJ0gfqJaD
+# HbA47KBeOLLUb8WPNE0UsDsKzxPfKp/FZWn7Gw6c+xpNWCBCIHkmxc3sVD3iJZW3
+# JJt3BDZYTn+Hkp839dq3zgQvGe/Tg6sOeLztCToLzVBGIEFmreZPzGCPKiUb3Ip6
+# pwViAihwro28wZSCI4cTib635iBFkCrCDUU6ulMyDETdjjOJBwHhA5AYbXnBPCG/
+# OnZ8II4SpMQqeOOoIC+HuBUL0HDpdjgCp8SoaGPjLTkZxfkfKLVIwPpSUNk+Qm9l
+# 6n2QmY7eI9Fk+36JLoeNitqd8gdK5wn+RsG74p6amuxLsyuXexkp9a0DN+bwW3jj
+# yE2cS9434khtrvI=
 # SIG # End signature block
