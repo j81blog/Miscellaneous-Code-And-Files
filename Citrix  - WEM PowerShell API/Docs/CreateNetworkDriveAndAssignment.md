@@ -114,3 +114,81 @@ Remove-WEMNetworkDriveAssignment -Id $WEMNetworkDriveAssignment.id
 # This command remove the network drive
 Remove-WEMNetworkDrive -Id $WEMNetworkDrive.id
 ```
+
+### 9. Example
+This example extracts details from a user GPO and creates the network drives in WEM with the assignment.
+
+```PowerShell
+$DriveMaps = Get-GppDriveMapping -GpoName "UserSettings GPO"
+
+#Optional, save to Json and import on t=other machine
+Get-GppDriveMapping -GpoName "UserSettings GPO" -AsJson | Out-File -FilePath "path\to\drivemaps.json"
+$DriveMaps = Get-Content "path\to\drivemaps.json" -Raw | ConvertFrom-Json
+
+#Make sure you are connected and have selected the right Configuration Site
+
+foreach ( $DriveMap in $DriveMaps ) {
+    $ShareName = $DriveMap.Label
+    $SharePath = $DriveMap.NetworkPath
+    $DriveLetter = $DriveMap.DriveLetter
+    $Forest = (Get-WEMActiveDomain).Forest
+    $Domain = (Get-WEMActiveDomain).Domain
+    if (-Not ($DriveMap.Enabled -eq $true)) {
+        Write-Host "Drive map entry `"$ShareName`" is not enabled"
+        continue
+    }
+
+    if (-not $ShareName -or -not $SharePath -or -not $DriveLetter) {
+        Write-Error "Drive map entry is missing required properties. Please ensure 'Label', 'Location', and 'DriveLetter' are specified."
+        continue
+    }
+    if (-not $Forest -or -not $Domain) {
+        Write-Error "Unable to retrieve Active Directory domain information from WEM. Please ensure you are connected to the WEM API and that the Active Directory domain is properly configured."
+        return
+    }
+    try {
+        $WEMNetworkDrive = Get-WEMNetworkDrive | Where-Object { $_.name -ieq $ShareName -and $_.targetPath -ieq $SharePath }
+        if (-not $WEMNetworkDrive) {
+            $WEMNetworkDrive = New-WEMNetworkDrive -Name $ShareName -TargetPath $SharePath -DisplayName $ShareName -SelfHealing -PassThru
+            Write-Host "Created new WEM network drive $($WEMNetworkDrive.Name) with path $($WEMNetworkDrive.TargetPath)"
+        } else {
+            Write-Host "Found WEM network drive $($WEMNetworkDrive.Name) with path $($WEMNetworkDrive.TargetPath)"
+        }
+
+        # Check if Network drive was created
+        if (-not $WEMNetworkDrive) {
+            Write-Error "Network drive $ShareName not found in WEM"
+            return
+        }
+
+        foreach ($GroupDetails in $DriveMap.TargetedAdGroup) {
+            $WEMAssignmentTargetGroupName = '{0}/{1}/{2}' -f $Forest, $Domain, $GroupDetails.Name
+
+            # Check if the group already exists as an assignment target in WEM
+            $WEMAssignmentTarget = Get-WEMAssignmentTarget | Where-Object { $_.name -ieq $WEMAssignmentTargetGroupName -or $_.sid -ieq $GroupDetails.Sid }
+            if (-not $WEMAssignmentTarget) {
+                # Find the group in Active Directory using the WEM cmdlets
+                # The Where-Object ensures an exact match on the account name
+                $ADGroup = Get-WEMADGroup -Filter $GroupDetails.Name | Where-Object { $_.AccountName -ieq $GroupDetails.Name }
+
+                # Create a new assignment target in WEM using the AD group's properties
+                # The -PassThru parameter outputs the newly created object to the pipeline
+                $WEMAssignmentTarget = New-WEMAssignmentTarget -Sid $ADGroup.Sid -Name $ADGroup.Name -ForestName $ADGroup.ForestName -DomainName $ADGroup.DomainName -Type $ADGroup.Type -PassThru
+                Write-Host "Created new WEM assignment target for AD group $($ADGroup.Name)"
+            } else {
+                Write-Host "Found existing WEM assignment target for AD group $($GroupDetails.Name)"
+            }
+            # Assign the network drive to the target group
+            $WEMNetworkDriveAssignment = New-WEMNetworkDriveAssignment -Target $WEMAssignmentTarget -NetworkDrive $WEMNetworkDrive -DriveLetter $DriveLetter -PassThru
+            if ($WEMNetworkDriveAssignment) {
+                Write-Host "Successfully created WEM network drive assignment for $($GroupDetails.Name)"
+            } else {
+                Write-Error "Failed to create WEM network drive assignment for $($GroupDetails.Name)"
+            }
+        }
+    } catch {
+        Write-Error "Failed to create or modify WEM Network Drive $($ShareName) for path $($SharePath), Error: $($_.Exception.Message)"
+    }
+}
+
+```
