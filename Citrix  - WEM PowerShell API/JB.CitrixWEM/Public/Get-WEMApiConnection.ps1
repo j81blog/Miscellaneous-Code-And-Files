@@ -20,6 +20,8 @@ function Get-WemApiConnection {
     if ($null -eq $script:WemApiConnection -or ([String]::IsNullOrEmpty($($script:WemApiConnection.BearerToken)))) {
         throw "Not connected to Citrix Cloud API. Please run Connect-WemApi first."
     }
-    Write-Verbose "Connection: $($script:WemApiConnection | Out-String)"
+    $verboseOutput = $script:WemApiConnection.psObject.Copy()
+    $verboseOutput.BearerToken = "********"
+    Write-Verbose "Connection: $($verboseOutput | Out-String)"
     return $script:WemApiConnection
 }

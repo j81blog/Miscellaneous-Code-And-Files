@@ -102,7 +102,6 @@ function Invoke-WemApiRequest {
         $ApiSplat.Add('Body', ($Body | ConvertTo-Json -Depth 10 -Compress))
     }
 
-    # De catch-logica blijft hetzelfde als in de vorige, robuuste versie
     try {
         $Response = Invoke-WebRequest @ApiSplat
         if ($Response.Content) { return $Response.Content | ConvertFrom-Json }

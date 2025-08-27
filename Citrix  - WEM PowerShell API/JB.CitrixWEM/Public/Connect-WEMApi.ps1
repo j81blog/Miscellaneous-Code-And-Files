@@ -71,6 +71,11 @@ function Connect-WEMApi {
             })]
         [uri]$WEMServer,
 
+        [Parameter(Mandatory = $false, ParameterSetName = 'ApiCredentials')]
+        [Parameter(Mandatory = $false, ParameterSetName = 'Sdk')]
+        [Parameter(Mandatory = $false, ParameterSetName = 'OnPremCredential')]
+        [switch]$NoWelcome,
+
         [Parameter(Mandatory = $true, ParameterSetName = 'OnPremCredential')]
         [System.Management.Automation.PSCredential]
         [System.Management.Automation.Credential()]$Credential = [System.Management.Automation.PSCredential]::Empty
@@ -81,9 +86,10 @@ function Connect-WEMApi {
         BaseUrl      = $null
         CustomerId   = $null
         BearerToken  = $null
-        WebSession   = $null
+        WebSession   = New-Object Microsoft.PowerShell.Commands.WebRequestSession
         CloudProfile = $null
     }
+    $LocalConnection.WebSession.UserAgent = "CitrixWEMPoShApi/1.4)"
 
     try {
         # Disconnect any existing session before creating a new one
@@ -181,7 +187,10 @@ function Connect-WEMApi {
                 }
 
                 $LocalConnection.BearerToken = "CWSAuth bearer=$($TokenResponse.token)"
-                Write-Host "Successfully connected using API Credentials for Customer ID: $($LocalConnection.CustomerId) in region $($ApiRegion.ToUpper())"
+                if ($NoWelcome.ToBool() -eq $false) {
+                    Write-Information -MessageData "Successfully connected using API Credentials for Customer ID: $($LocalConnection.CustomerId) in region $($ApiRegion.ToUpper())" -InformationAction Continue
+                    Write-Information -MessageData  "`nNOTE: You can use the -NoWelcome parameter to suppress this message." -InformationAction Continue
+                }
             }
         }
 
