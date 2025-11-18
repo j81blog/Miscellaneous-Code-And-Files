@@ -22,7 +22,7 @@ function Get-FileIconBase64 {
         by running Get-IconInfo against it. The default is 0.
 
     .EXAMPLE
-        PS C:\> $Script:IconExtPath = "C:\tools\IconExt.exe"
+        PS C:\> $Script:IconExtractor = "C:\tools\IconExt.exe"
         PS C:\> Get-FileIconBase64 -FilePath "C:\Windows\System32\imageres.dll" -Size 64 -Index 10
 
         iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQU...
@@ -39,7 +39,7 @@ function Get-FileIconBase64 {
 
         This function has two main dependencies:
         1. An external icon extraction executable, the path to which must be stored in the
-           $Script:IconExtPath variable.
+           $Script:IconExtractor variable.
         2. The .NET System.Drawing library, which is available on Windows PowerShell 5.1 and
            Windows-based PowerShell 7+ installations.
 #>
@@ -69,11 +69,18 @@ function Get-FileIconBase64 {
     )
 
     process {
-        if (-not (Test-Path -Path $Script:IconExtPath -PathType Leaf)) {
-            throw "The required icon extraction executable was not found. Please set the `$Script:IconExtPath variable to a valid file path."
+        if (-not (Test-Path -Path $Script:IconExtractor -PathType Leaf)) {
+            throw "The required icon extraction executable was not found. Please set the `$Script:IconExtractor variable to a valid file path."
         }
 
-        Add-Type -AssemblyName System.Drawing
+        #check if System.Drawing is not already loaded
+        if (-not ("System.Drawing" -in [AppDomain]::CurrentDomain.GetAssemblies().FullName)) {
+            try {
+                Add-Type -AssemblyName System.Drawing
+            } catch {
+                throw "Failed to load System.Drawing assembly. This function requires the .NET System.Drawing library, which is only available on Windows PowerShell 5.1 and Windows-based PowerShell 7+ installations. Error: $_"
+            }
+        }
 
         $ResolvedPath = Convert-Path -Path $FilePath
         if ($ResolvedPath -like "*.ico") {
@@ -111,32 +118,31 @@ function Get-FileIconBase64 {
                 }
                 Write-Verbose "Selected icon resource: $($SelectedIcon.Index) => $($SelectedIcon.Name)"
 
-
-                Write-Verbose "Created temporary directory: $($TempPath)"
-
                 $IconMatchPattern = '{0}_{1}.ico' -f [System.IO.Path]::GetFileNameWithoutExtension($ResolvedPath), ($SelectedIcon.Name -replace "#", "")
                 Write-Verbose "Looking for icon files matching pattern: $($IconMatchPattern)"
 
                 # Call the external tool to extract the icon
-                if (Test-Path -Path $Script:IconExtPath -PathType Leaf) {
-                    Write-Verbose "Using external tool at path: $($Script:IconExtPath)"
-                    $IconExtPath = $Script:IconExtPath
-                } elseif (Test-Path -Path $Global:IconExtPath -PathType Leaf) {
-                    Write-Verbose "Using external tool at path: $($Global:IconExtPath)"
-                    $IconExtPath = $Global:IconExtPath
+                if (Test-Path -Path $Script:IconExtractor -PathType Leaf) {
+                    Write-Verbose "Using external tool at path: $($Script:IconExtractor)"
+                    $IconExtractor = $Script:IconExtractor
+                } elseif (Test-Path -Path $Global:IconExtractor -PathType Leaf) {
+                    Write-Verbose "Using external tool at path: $($Global:IconExtractor)"
+                    $IconExtractor = $Global:IconExtractor
                 } else {
                     throw "Could not find a valid icon extraction tool (NirSoft IconExt.exe) path."
                 }
 
                 New-Item -Path $TempPath -ItemType Directory -Force | Out-Null
-                & $IconExtPath /save "$($ResolvedPath)" "$($TempPath)" -icons
+                Write-Verbose "Created temporary directory: $($TempPath)"
+
+                & $IconExtractor /save "$($ResolvedPath)" "$($TempPath)" -icons
                 $MaxTrialTime = (Get-Date).AddSeconds(1)
                 while ((Get-Date) -lt $MaxTrialTime) {
                     $IconFile = Get-ChildItem -Path $TempPath | Where-Object { $_.Name -like $IconMatchPattern } | Select-Object -First 1
                     if ($IconFile) {
                         break
                     }
-                    Start-Sleep -Milliseconds 100
+                    Start-Sleep -Milliseconds 200
                 }
 
                 Write-Verbose "Looking for icon file: $($IconFile.FullName)"
