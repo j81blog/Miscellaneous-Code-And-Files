@@ -8,7 +8,7 @@
     RootModule        = 'MijnHostApi.psm1'
 
     # Version number of this module.
-    ModuleVersion     = '0.1.0'
+    ModuleVersion     = '2026.602.1215'
 
     # Supported PSEditions
     # CompatiblePSEditions = @()
@@ -67,11 +67,15 @@
     # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
     FunctionsToExport = @(
         'Get-MijnHostDomain',
-        'Get-MijnHostDNSRecord',
+        'Update-MijnHostDomain',
+        'Remove-MijnHostDomain',
+        'Restore-MijnHostDomain',
         'Get-MijnHostDomainAuthCode',
-        'New-MijnHostDNSRecord',
+        'Get-MijnHostDnsRecord',
+        'New-MijnHostDnsRecord',
+        'Update-MijnHostDnsRecord',
         'Set-MijnHostDnsRecord',
-        'Remove-MijnHostDNSRecord'
+        'Remove-MijnHostDnsRecord'
     )
 
     # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.

@@ -1,5 +1,5 @@
-function New-MijnHostDNSRecord {
-    [CmdletBinding()]
+function New-MijnHostDnsRecord {
+    [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium')]
     param(
         [Parameter(Mandatory)]
         [ValidateSet('A', 'AAAA', 'CNAME', 'MX', 'TXT', 'SRV', 'NS', 'CAA', 'PTR', 'SOA')]
@@ -18,29 +18,37 @@ function New-MijnHostDNSRecord {
         [Alias('Domain')]
         [string]$DomainName,
 
-        [Parameter(ValueFromPipeline, ValueFromPipelineByPropertyName)]
-        [PSCustomObject[]]$Records
+        [Parameter(Mandatory)]
+        [string]$ApiKey
     )
-    $domainRecord = $Records | Where-Object { $_.domain -ieq $DomainName }
-    if (-Not $domainRecord) {
-        $domainRecord = [PSCustomObject]@{
-            domain  = $DomainName
-            records = @([PSCustomObject]@{
-                    name  = $Name
-                    type  = $Type
-                    value = $Value
-                    ttl   = $TTL
-                }
-            )
-        }
-        $Records += $domainRecord
-    } else {
-        $domainRecord.records += [PSCustomObject]@{
-            name  = $Name
-            type  = $Type
-            value = $Value
-            ttl   = $TTL
-        }
+
+    # Normalize name to include trailing dot as required by the API
+    if (-not $Name.EndsWith('.')) { $Name = "$Name." }
+
+    $current = Get-MijnHostDnsRecord -DomainName $DomainName -ApiKey $ApiKey
+
+    $newRecord = [PSCustomObject]@{
+        type  = $Type
+        name  = $Name
+        value = $Value
+        ttl   = $TTL
     }
-    return $Records
+
+    # Check if this exact record already exists
+    $exists = $current.records | Where-Object {
+        $_.type -eq $Type -and $_.name -eq $Name -and $_.value -eq $Value
+    }
+    if ($exists) {
+        Write-Verbose "Record '$Name' ($Type) with value '$Value' already exists on '$DomainName'. Nothing to do."
+        return
+    }
+
+    $updatedRecords = [PSCustomObject]@{
+        records = @($current.records) + $newRecord
+    }
+
+    if (-not $PSCmdlet.ShouldProcess("DNS records for '$DomainName'", "Add $Type record '$Name'")) { return }
+
+    $url = "https://mijn.host/api/v2/domains/$DomainName/dns"
+    Invoke-MijnHostApi -Method Put -Url $url -ApiKey $ApiKey -Body $updatedRecords
 }

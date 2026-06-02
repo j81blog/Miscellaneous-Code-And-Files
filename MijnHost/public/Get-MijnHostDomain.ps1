@@ -9,24 +9,22 @@ function Get-MijnHostDomain {
         [Parameter(Mandatory, ParameterSetName = 'All')]
         [string]$ApiKey,
 
-        [Parameter(Mandatory, ParameterSetName = 'All')]
+        [Parameter(ParameterSetName = 'All')]
         [string[]]$Tags,
 
         [Parameter(Mandatory, ParameterSetName = 'All')]
         [Switch]$All
     )
 
-    if ($PSBoundParameters.ContainsKey('All')) {
-        $url = "https://mijn.host/api/v2/domains"
+    if ($PSCmdlet.ParameterSetName -eq 'All') {
+        $url = 'https://mijn.host/api/v2/domains'
         if ($Tags) {
             $url += "?tags=$($Tags -join ',')"
         }
         Invoke-MijnHostApi -Method Get -Url $url -ApiKey $ApiKey
         return
     }
-    if ($PSBoundParameters.ContainsKey('DomainName')) {
-        $url = "https://mijn.host/api/v2/domains/$DomainName"
-        Invoke-MijnHostApi -Method Get -Url $url -ApiKey $ApiKey
-        return
-    }
+
+    $url = "https://mijn.host/api/v2/domains/$DomainName"
+    Invoke-MijnHostApi -Method Get -Url $url -ApiKey $ApiKey
 }
