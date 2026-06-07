@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     This script performs client detection for Citrix Workspace App and gathers client version metadata.
 
@@ -75,7 +75,7 @@
     File Name      : CWACLientDetection.ps1
     Author         : John Billekens Consultancy
     Prerequisite   : PowerShell V2.0
-    Version        : 2025.1224.815
+    Version        : 2026.606.2200
     Copyright      : Copyright (c) 2025 John Billekens Consultancy
 
 #>
@@ -357,35 +357,61 @@ function Test-CWAWindowsVersion {
         { $_ -le [Version]"19.11.0" -or $_ -le [Version]"19.12.7002" } {
             $isCveImpacted = $true
         }
-        { $_ -gt [Version]"22.03.0" -and $_ -lt [Version]"22.4.0" } {
+
+        #LTSR
+        { $_ -ge [Version]"25.7.0" -and $_ -lt [Version]"25.8.0" -and (Get-Date) -lt [DateTime]"2028-9-16" } {
+            $isEOL = $true
+        }
+        { $_ -ge [Version]"25.7.0" -and $_ -lt [Version]"25.8.0" } {
             $isLtsrVersion = $true
         }
-        { $_ -gt [Version]"19.12.0" -and $_ -lt [Version]"19.13.0" } {
-            $isLtsrVersion = $true
-        }
-        { $_ -gt [Version]"4.9.0" -and $_ -lt [Version]"4.10.0" } {
-            $isLtsrVersion = $true
+        { $_ -ge [Version]"24.2.0" -and $_ -lt [Version]"24.3.0" -and (Get-Date) -lt [DateTime]"2027-4-8" } {
+            $isEOL = $true
         }
         { $_ -ge [Version]"24.2.0" -and $_ -lt [Version]"24.3.0" } {
             $isLtsrVersion = $true
         }
+        { $_ -gt [Version]"22.03.0" -and $_ -lt [Version]"22.4.0" } {
+            $isLtsrVersion = $true
+            $isEOL = $true
+        }
+        { $_ -gt [Version]"19.12.0" -and $_ -lt [Version]"19.13.0" } {
+            $isLtsrVersion = $true
+            $isEOL = $true
+        }
+        { $_ -gt [Version]"4.9.0" -and $_ -lt [Version]"4.10.0" } {
+            $isLtsrVersion = $true
+            $isEOL = $true
+        }
+
         #https://www.citrix.com/support/product-lifecycle/workspace-app.html
+        { $_ -eq [Version]"26.3.1.194" -and (Get-Date) -ge [DateTime]"2027-11-11" } {
+            $isEOL = $true
+        }
+        { $_ -eq [Version]"26.3.0.188" -and (Get-Date) -ge [DateTime]"2027-10-30" } {
+            $isEOL = $true
+        }
+        { $_ -eq [Version]"25.11.10.50" -and (Get-Date) -ge [DateTime]"2027-8-17" } {
+            $isEOL = $true
+        }
+        { $_ -eq [Version]"25.11.1.209" -and (Get-Date) -ge [DateTime]"2027-7-16" } {
+            $isEOL = $true
+        }
+        { $_ -eq [Version]"25.11.0.200" -and (Get-Date) -ge [DateTime]"2027-6-23" } {
+            $isEOL = $true
+        }
         { $_ -eq [Version]"25.8.10.36" -and (Get-Date) -ge [DateTime]"2027-5-3" } {
             $isEOL = $true
         }
-
         { $_ -eq [Version]"25.8.0.71" -and (Get-Date) -ge [DateTime]"2027-3-29" } {
             $isEOL = $true
         }
-
         { $_ -eq [Version]"25.3.2.196" -and (Get-Date) -ge [DateTime]"2026-11-22" } {
             $isEOL = $true
         }
-
         { $_ -eq [Version]"24.9.10.28" -and (Get-Date) -ge [DateTime]"2026-7-16" } {
             $isEOL = $true
         }
-
         { $_ -eq [Version]"24.9.0.201" -and (Get-Date) -ge [DateTime]"2026-5-26" } {
             $isEOL = $true
         }
@@ -510,19 +536,22 @@ function Test-CWALinuxVersion {
         { $_ -lt [Version]"24.5" -and (Get-Date) -ge [DateTime]"2025-12-12" } {
             $isEOL = $true
         }
-        { $_ -lt [Version]"24.8" -and (Get-Date) -ge [DateTime]"2026-4-9" } {
+        { $_ -lt [Version]"24.9" -and (Get-Date) -ge [DateTime]"2026-4-9" } {
             $isEOL = $true
         }
-        { $_ -lt [Version]"24.11" -and (Get-Date) -ge [DateTime]"2026-6-13" } {
+        { $_ -lt [Version]"24.12" -and (Get-Date) -ge [DateTime]"2026-6-13" } {
             $isEOL = $true
         }
-        { $_ -lt [Version]"25.3" -and (Get-Date) -ge [DateTime]"2026-9-26" } {
+        { $_ -lt [Version]"25.4" -and (Get-Date) -ge [DateTime]"2026-9-26" } {
             $isEOL = $true
         }
-        { $_ -lt [Version]"25.5" -and (Get-Date) -ge [DateTime]"2026-12-17" } {
+        { $_ -lt [Version]"25.6" -and (Get-Date) -ge [DateTime]"2026-12-17" } {
             $isEOL = $true
         }
-        { $_ -lt [Version]"25.8" -and (Get-Date) -ge [DateTime]"2027-4-27" } {
+        { $_ -lt [Version]"25.8.10" -and (Get-Date) -ge [DateTime]"2027-4-17" } {
+            $isEOL = $true
+        }
+        { $_ -lt [Version]"25.8.11" -and (Get-Date) -ge [DateTime]"2027-6-27" } {
             $isEOL = $true
         }
         { $_ -gt [Version]"22.03.0" -and $_ -lt [Version]"22.4.0" } {
@@ -591,6 +620,12 @@ function Test-CWAMacVersion {
         }
         { $_ -ge [Version]"24.2.0" -and $_ -lt [Version]"24.3.0" } {
             $isLtsrVersion = $true
+        }
+        { $_ -le [Version]"25.11.0.36" -and (Get-Date) -ge [DateTime]"2027-06-19" } {
+            $isEOL = $true
+        }
+        { $_ -le [Version]"25.08.10.31" -and (Get-Date) -ge [DateTime]"2027-4-28" } {
+            $isEOL = $true
         }
         { $_ -le [Version]"25.08.0.48" -and (Get-Date) -ge [DateTime]"2027-3-15" } {
             $isEOL = $true
@@ -1015,8 +1050,8 @@ if ($Test -eq $true) {
 # SIG # Begin signature block
 # MIImdwYJKoZIhvcNAQcCoIImaDCCJmQCAQExDzANBglghkgBZQMEAgEFADB5Bgor
 # BgEEAYI3AgEEoGswaTA0BgorBgEEAYI3AgEeMCYCAwEAAAQQH8w7YFlLCE63JNLG
-# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCAxukchCBZVfadS
-# ZZrTsGkJ/qBP8oPAL4exQ6D1BFUPcKCCIAowggYUMIID/KADAgECAhB6I67aU2mW
+# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCCSbbXsRcZw8XMW
+# oTbGUw7GgaK0swA/i9PXadK10X0VU6CCIAowggYUMIID/KADAgECAhB6I67aU2mW
 # D5HIPlz0x+M/MA0GCSqGSIb3DQEBDAUAMFcxCzAJBgNVBAYTAkdCMRgwFgYDVQQK
 # Ew9TZWN0aWdvIExpbWl0ZWQxLjAsBgNVBAMTJVNlY3RpZ28gUHVibGljIFRpbWUg
 # U3RhbXBpbmcgUm9vdCBSNDYwHhcNMjEwMzIyMDAwMDAwWhcNMzYwMzIxMjM1OTU5
@@ -1192,31 +1227,31 @@ if ($Test -eq $true) {
 # cnR1bSBDb2RlIFNpZ25pbmcgMjAyMSBDQQIQCDJPnbfakW9j5PKjPF5dUTANBglg
 # hkgBZQMEAgEFAKCBhDAYBgorBgEEAYI3AgEMMQowCKACgAChAoAAMBkGCSqGSIb3
 # DQEJAzEMBgorBgEEAYI3AgEEMBwGCisGAQQBgjcCAQsxDjAMBgorBgEEAYI3AgEV
-# MC8GCSqGSIb3DQEJBDEiBCAlQQzhgJY4/rY3GEE5Y9KNUoIa//uPvnYJ9aVKHsgB
-# aTANBgkqhkiG9w0BAQEFAASCAYBMpTHH+WLPEjzHAfySGoMhMHzBmLGeevIBu+zr
-# kFwMCdTM1zaoigHtcBGAyhM63/73kFrDLaeoXI/MjYpOiarOpcMwh/peAYiZ1zjD
-# K88+ah724Fe9lKI9Ra2tHaTBUHjfkUf2RTWbBB9Qg1c8en3gvT1BWhJTFzsLaRUj
-# 7fVadVIt/ChHZ0ZXVwFLumxVbdGaBZ1EAq5V+1r8yRmZ9PxrrBmZeEBc8WyeBF4R
-# fV+qwClBNvp3sYJKwjtLqM3mMIBXgtCJySLwabn7GZ7yfpUfNJl2Fgp2yhPAIQwT
-# ad8xKuINzgtp5mh+y4eflG6sDhYy/zk+hN5gpTLyhRs29ysgFTtqkml4J3ZdZEi3
-# BVl4Fsaw4OmxPH8ypoyoMbodyovcs512tY115Z5QmEJR0oCoVdEAV/shqGpmi6Vv
-# KE+vRHmkX3mEijDQQ9EbOmK+y/Zo0EnBuH88qjOHHo3BT9hXX8zfjbPAOeYXed8O
-# gKfWUEpl7//tbgQV43/GpdVnhJKhggMjMIIDHwYJKoZIhvcNAQkGMYIDEDCCAwwC
+# MC8GCSqGSIb3DQEJBDEiBCDCA4+LhY6mLNaN0x/9r5NCvRKkf+zlPXDWGI4Fnp9e
+# tjANBgkqhkiG9w0BAQEFAASCAYBxfmwY9CmbgVajDtWmuQ1b0rM3GGlzMRA2o4eV
+# ADbeTY4PkJTfiZoQCT70tb19BIpo1DipbLzEagdPzcT+E7MFa7+BPL/Vg3erRDtB
+# P8+tDagJSVSnwXf5Vo9L1mEqYQ6MZytTl6Peiq+24uFrHTpZdjPi+WqbBqgml5QQ
+# sBzUfF4PKqBvJfpwQ2ubIEqNgpQLr4uBNxQCZqpJPdYH4+bIdX+8w7Kb6+rZKaon
+# M/5PXllRjC2ay5P4bnSQv3zU/uZGk8FOmexPpYpufXcXGTCD9YO1RfcqfzHuYOhn
+# XYTpEAzG6t4xd1P4bfyBDNS7RWq842cov+EtmVF4Ay/JE2okMSXNjmtQGK2xr2no
+# HuhCq6Qlz+TV/mJhPu6QMdTOZpnWqpOTga641NjT4x1yprsLho5Il+fXxs7nh+Na
+# QARxJZpU9EbzjNORO1xaCJRc7U14Y/H4JynMvNGcyR11OrZ4yYVr0ZOhZIUWOzaQ
+# gTuDDiWSA/BGw7Dj+94TqmJ9QIWhggMjMIIDHwYJKoZIhvcNAQkGMYIDEDCCAwwC
 # AQEwajBVMQswCQYDVQQGEwJHQjEYMBYGA1UEChMPU2VjdGlnbyBMaW1pdGVkMSww
 # KgYDVQQDEyNTZWN0aWdvIFB1YmxpYyBUaW1lIFN0YW1waW5nIENBIFIzNgIRAKQp
 # O24e3denNAiHrXpOtyQwDQYJYIZIAWUDBAICBQCgeTAYBgkqhkiG9w0BCQMxCwYJ
-# KoZIhvcNAQcBMBwGCSqGSIb3DQEJBTEPFw0yNTEyMjQwNzIxMThaMD8GCSqGSIb3
-# DQEJBDEyBDCyi5drmMajvwSjPUoV36PfJooWKpx22FPkz0XeKC/T2GBQa/mXQuGc
-# 41c/E55T3hMwDQYJKoZIhvcNAQEBBQAEggIAT/yNNTtvJPQhPTcFxbE3teSF/Ues
-# RJ1LRz4EKc0xwOG5Q4lAXx+0/6IK4RRp+CIPkLeaBhlokPOCRAxz/N/AmmPNAS+b
-# mVp+yt81c/0Js2KlJyrWKDoGGmd63yhkexYeQPY6wD1ktxYooXFo82Qq4ksc/PLQ
-# 2MbI77+8ahPkGhUI080alJZe0Hhqfo9z+7l1FYP7SrsQb+ki5eYpE0tUEWnDthYX
-# Uc3HFvuhwvs3RXZAzq+MZkmytNODII530C6SPSSKU8szYVwkyTWXaAs+4/FtdxSI
-# EsBG3NWx0kpOJpIFoqwn9d9ZUuh8TUKReJwxMHj7HrSl+uiGBd8tiHMNcPDiHhfo
-# GGEf4OU7b5wEYEM7HAaEZ7p5GDkXtfOu6LZiWF5tA6cMNKYEZUENqdi+M6o7ZISu
-# qLI33nwfH6SKVm5JY4UCzXx44uDBI+dDY0qvzMMqE1/6CQPwyVKaj2Z3TA5JSoyx
-# L/odVlg14yflwPjg29XWhbk/CAEh1rEmraQ6gRmBSr5RYe69cO62DJM9yE2A1Wy/
-# BFMwFtwGlcfrE+wpjhqOuC3iZzU7Vy4XbVMosNjUB5vr7q0TfnD+TwOjRPm1UTh+
-# KEmEw78t1SMw+0zGMvUd9F65s5yG016LLLhRlPPPJT1uWvh+1MK0dcS5S8cSGGMZ
-# qzlJx9TTVFAAP/U=
+# KoZIhvcNAQcBMBwGCSqGSIb3DQEJBTEPFw0yNjA2MDcyMDA1MzRaMD8GCSqGSIb3
+# DQEJBDEyBDBiTjQge3XpHidHrLdSqvXtGAL3pEl3jSfOqKi/sS0d0pBctSPMu6RL
+# Qx8OKAk3i8cwDQYJKoZIhvcNAQEBBQAEggIACiLj4mi+FMqo4/Dql/pvTswmmrcQ
+# +p7uWt4nIobPFY0vbG6RdcKHn0h7is5xi2px7YUcoIW4k+sEAUyhSNuWc8MTvHK5
+# tmeGN0cf+HawVQGG2IrQ7Yxa7At6+jKLMTslRPy1+9gSOm0VTkBa6F2GkhgMTVTw
+# +Wx/yXHwLQd9ldxnQDnW+sVdDSoXGjBuM/ADXQMpb9KGFi/DHIoL+MYzUmkYNhgQ
+# yVOkz/z3SZIDoYl0VqCmRNowFgr7G9LwAKoR3uVjWhIod3t3v9UZXZzgw655vtYy
+# z85X0fOdaBM/K2xY0oVBwPk02GM+bUz/kG+d2NE2Fjx11psaML5FmtFKoo2JtRqE
+# crlVRO8q/gd9kX/8eMQwCpNZBDBpnVB0BYJBHYLncqJuo+plroVnW59SI8DVCSVr
+# pfu6ftSK1OlBd9tuN1ol3G2uSL3Y5+WNdCfHIbMhpRgn4fPVIq+NxdRJPGYHm4NA
+# 3SwengwbxzFWP8FJmkGyUm3pIE8ZBEJD1hV9CueGlsFn+zO7b67zETEbsgd0BRL1
+# yWyK2w6KfXkkkUYb5R0dvkTqo8bKr3okPMG6FzF/JCuo/h3STfAVYIrsDVbTu8Rj
+# iJvc78aazjmWQ1Wng/conDLHds4aNAlMMptHjdvM0GK7sXdl8FcHwE5fvDNssYxw
+# /2CeoPna38p7wHs=
 # SIG # End signature block
