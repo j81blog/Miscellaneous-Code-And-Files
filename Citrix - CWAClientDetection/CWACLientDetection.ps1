@@ -40,6 +40,17 @@
     Specifies whether the script should run in test mode.
     Do not specify the -Test parameter when presenting the script to the user.
 
+.PARAMETER EvaluateVersion
+    One or more Citrix Workspace app versions to evaluate offline. Outputs one result object per
+    version (Version, Platform, Release, IsLTSR, IsEOL, EndOfLife, IsCveImpacted, CVEs, Status)
+    and does not show messages or log off sessions.
+
+.PARAMETER EvaluatePlatform
+    The platform used with -EvaluateVersion: Windows, Mac or Linux. Default: Windows.
+
+.PARAMETER ReferenceDate
+    The date used for the EOL check with -EvaluateVersion. Default: today.
+
 .EXAMPLE
     .\CWACLientDetection.ps1 -EnableLogging -LoggingPath "C:\Logs" -MessageLogo "C:\Logo.png" -MessageTextEOL "Multiline`r`nEnd of life message" -MessageTextCVE "Multiline`r`nCVE message" -MessageTitle "Title" -RunLocal -LogoffOnEOL -LogoffOnCVE -Test
     Runs the script with the specified parameters in test mode, running locally and logging off the user on EOL and CVE messages.
@@ -67,16 +78,20 @@
     You can optionally use the -Test parameter to run the script in test mode.
 
 .EXAMPLE
+    .\CWACLientDetection.ps1 -EvaluateVersion '26.3.10.69', '25.7.3000.3034' -EvaluatePlatform Windows | Format-Table -Property Version, Release, Status, CVEs
+    Evaluates the specified versions offline and returns the EOL/CVE status per version.
+
+.EXAMPLE
     .\CWACLientDetection.ps1 -JSONFilename "C:\CWACLientDetection.json" [-Test]
     Runs the script using the parameters loaded from the specified JSON file.
     You can optionally use the -Test parameter to run the script in test mode.
 
 .NOTES
-    File Name      : CWACLientDetection.ps1
-    Author         : John Billekens Consultancy
-    Prerequisite   : PowerShell V2.0
-    Version        : 2026.606.2200
-    Copyright      : Copyright (c) 2025 John Billekens Consultancy
+    Script    : CWACLientDetection.ps1
+    Author    : John Billekens
+    Copyright : Copyright (c) John Billekens Consultancy
+    Version   : 2026.0927.2134
+    Requires  : Windows PowerShell 5.1 or later
 
 #>
 [CmdletBinding(DefaultParameterSetName = "Parameter")]
@@ -120,7 +135,18 @@ param (
 
     [Parameter(ParameterSetName = "JSON")]
     [Parameter(ParameterSetName = "Parameter")]
-    [Switch]$Test
+    [Switch]$Test,
+
+    [Parameter(Mandatory = $true, ParameterSetName = 'Evaluate')]
+    [ValidateNotNullOrEmpty()]
+    [String[]]$EvaluateVersion,
+
+    [Parameter(ParameterSetName = 'Evaluate')]
+    [ValidateSet('Windows', 'Mac', 'Linux')]
+    [String]$EvaluatePlatform = 'Windows',
+
+    [Parameter(ParameterSetName = 'Evaluate')]
+    [DateTime]$ReferenceDate = (Get-Date).Date
 )
 
 #region Checkx86orx64
@@ -160,7 +186,7 @@ if ([bool]$EnableLogging -eq $true) {
 
 #region Variables
 
-$version = "2025.1224.815"
+$version = '2026.0927.2134'
 if ($PSCmdlet.ParameterSetName -eq "JSON") {
     if (Test-Path -Path "$JSONFilename") {
         try {
@@ -216,492 +242,526 @@ $platform = "N/A"
 #region GatherMetadata
 
 #region functions
-function Test-CWAWindowsVersion {
+function Get-CWAReleaseData {
+    <#
+    .SYNOPSIS
+        Returns the lifecycle and CVE reference data for Citrix Workspace app per platform.
+
+    .DESCRIPTION
+        Central, data-driven source for all lifecycle (EOL) and CVE information used by the
+        Test-CWA*Version functions. Update this function when Citrix publishes a new release,
+        changes a lifecycle date or publishes a new security bulletin; the evaluation logic
+        itself does not need to change.
+
+        Release entries:
+            Name      : Citrix release name (e.g. 2603.11).
+            Min       : Lowest version (Major.Minor.Build) belonging to the release, derived
+                        from the release name (YYMM.x => YY.M.x).
+            Max       : (LTSR only) Exclusive upper bound of the LTSR line.
+            EndOfLife : EOL date (yyyy-MM-dd) from the Citrix lifecycle page. An empty value
+                        means the release is out of support without a listed date.
+
+        CVE entries:
+            Id        : CVE identifier.
+            Reference : Citrix security bulletin.
+            Ranges    : Affected version ranges as 'Min|Max' strings (Min inclusive, Max exclusive).
+
+        Sources:
+            https://www.citrix.com/support/product-lifecycle/workspace-app.html
+            https://support.citrix.com (security bulletins as referenced per CVE)
+
+    .EXAMPLE
+        (Get-CWAReleaseData).Windows.Cves | Format-Table -Property Id, Reference
+
+    .NOTES
+        Function  : Get-CWAReleaseData
+        Author    : John Billekens
+        Copyright : Copyright (c) John Billekens Consultancy
+        Version   : 2026.0927.2134
+    #>
     [CmdletBinding()]
-    param (
-        [Version]$Version
+    [OutputType([hashtable])]
+    param ()
+
+    $windowsLtsr = @(
+        @{ Name = '2607 LTSR'; Min = '26.7.0'; Max = '26.8.0'; EndOfLife = '2029-09-04' }
+        @{ Name = '2507.1 LTSR'; Min = '25.7.0'; Max = '25.8.0'; EndOfLife = '2028-09-16' }
+        @{ Name = '2402 LTSR'; Min = '24.2.0'; Max = '24.3.0'; EndOfLife = '2027-04-08' }
+        @{ Name = '2203.1 LTSR'; Min = '22.3.0'; Max = '22.4.0'; EndOfLife = '2025-03-23' }
+        @{ Name = '1912 LTSR'; Min = '19.12.0'; Max = '19.13.0'; EndOfLife = '' }
+        @{ Name = 'Receiver 4.9 LTSR'; Min = '4.9.0'; Max = '4.10.0'; EndOfLife = '' }
     )
+
+    $windowsCurrent = @(
+        @{ Name = '2603.11'; Min = '26.3.11'; EndOfLife = '2028-02-12' }
+        @{ Name = '2603.10'; Min = '26.3.10'; EndOfLife = '2027-12-18' }
+        @{ Name = '2603.1'; Min = '26.3.1'; EndOfLife = '2027-11-11' }
+        @{ Name = '2603'; Min = '26.3.0'; EndOfLife = '2027-10-30' }
+        @{ Name = '2511.10'; Min = '25.11.10'; EndOfLife = '2027-08-17' }
+        @{ Name = '2511.1'; Min = '25.11.1'; EndOfLife = '2027-07-16' }
+        @{ Name = '2511'; Min = '25.11.0'; EndOfLife = '2027-06-23' }
+        @{ Name = '2508.10'; Min = '25.8.10'; EndOfLife = '2027-05-03' }
+        @{ Name = '2508'; Min = '25.8.0'; EndOfLife = '2027-03-29' }
+        @{ Name = '2503.2'; Min = '25.3.2'; EndOfLife = '2026-11-22' }
+        @{ Name = '2409.10'; Min = '24.9.10'; EndOfLife = '2026-07-16' }
+        @{ Name = '2409'; Min = '24.9.0'; EndOfLife = '2026-05-26' }
+        @{ Name = '2405.11'; Min = '24.5.11'; EndOfLife = '2026-04-07' }
+        @{ Name = '2405.10'; Min = '24.5.10'; EndOfLife = '2026-02-08' }
+        @{ Name = '2405'; Min = '24.5.0'; EndOfLife = '2026-01-08' }
+        @{ Name = '2403.1'; Min = '24.3.1'; EndOfLife = '2025-11-21' }
+        @{ Name = '2403'; Min = '24.3.0'; EndOfLife = '2025-10-24' }
+        @{ Name = '2311'; Min = '23.11.0'; EndOfLife = '2025-06-25' }
+        @{ Name = '2309.1'; Min = '23.9.1'; EndOfLife = '2025-05-02' }
+        @{ Name = '2309'; Min = '23.9.0'; EndOfLife = '2025-04-10' }
+        @{ Name = '2307.1'; Min = '23.7.1'; EndOfLife = '2025-02-12' }
+        @{ Name = '2307'; Min = '23.7.0'; EndOfLife = '2025-02-12' }
+        @{ Name = '2305.1'; Min = '23.5.1'; EndOfLife = '2025-01-03' }
+        @{ Name = '2303'; Min = '23.3.0'; EndOfLife = '2024-09-29' }
+        @{ Name = '2302'; Min = '23.2.0'; EndOfLife = '2024-08-16' }
+        @{ Name = '2212'; Min = '22.12.0'; EndOfLife = '2024-07-23' }
+        @{ Name = '2210.5'; Min = '22.10.5'; EndOfLife = '2024-06-02' }
+        @{ Name = '2210'; Min = '22.10.0'; EndOfLife = '2024-05-23' }
+        @{ Name = '2209'; Min = '22.9.0'; EndOfLife = '2024-04-22' }
+    )
+
+    $windowsCves = @(
+        @{ Id = 'CVE-2019-11634'; Reference = 'CTX251986'; Ranges = @('0.0|4.9.6001', '4.10.0|19.4.0') }
+        @{ Id = 'CVE-2020-13884'; Reference = 'CTX275460'; Ranges = @('0.0|4.9.9002', '4.10.0|19.12.0') }
+        @{ Id = 'CVE-2020-13885'; Reference = 'CTX275460'; Ranges = @('0.0|4.9.9002', '4.10.0|19.12.0') }
+        @{ Id = 'CVE-2020-8207'; Reference = 'CTX277662'; Ranges = @('19.12.0|19.12.1001', '20.2.0|20.8.0') }
+        @{ Id = 'CVE-2021-22907'; Reference = 'CTX307794'; Ranges = @('0.0|19.12.4000', '19.13.0|21.5.0') }
+        @{ Id = 'CVE-2023-24483'; Reference = 'CTX477616'; Ranges = @('0.0|19.12.6000', '19.13.0|22.3.2000', '22.4.0|22.12.0') }
+        @{ Id = 'CVE-2023-24484'; Reference = 'CTX477617'; Ranges = @('0.0|19.12.7002', '19.13.0|22.3.2000', '22.4.0|22.12.0') }
+        @{ Id = 'CVE-2023-24485'; Reference = 'CTX477617'; Ranges = @('0.0|19.12.7002', '19.13.0|22.3.2000', '22.4.0|22.12.0') }
+        @{ Id = 'CVE-2024-6286'; Reference = 'CTX678036'; Ranges = @('0.0|22.3.6002', '22.4.0|24.2.0', '24.3.0|24.3.1') }
+        @{ Id = 'CVE-2024-7889'; Reference = 'CTX691485'; Ranges = @('0.0|22.3.6003', '22.4.0|24.2.1000', '24.3.0|24.5.0') }
+        @{ Id = 'CVE-2024-7890'; Reference = 'CTX691485'; Ranges = @('0.0|22.3.6003', '22.4.0|24.2.1000', '24.3.0|24.5.0') }
+        @{ Id = 'CVE-2025-4879'; Reference = 'CTX694718'; Ranges = @('0.0|24.2.2001', '24.2.3000|24.2.3001', '24.3.0|24.9.0') }
+        @{ Id = 'CVE-2026-78546'; Reference = 'CTX697034'; Ranges = @('0.0|25.7.3000', '25.8.0|26.3.11') }
+        @{ Id = 'CVE-2026-78547'; Reference = 'CTX697034'; Ranges = @('0.0|25.7.3000', '25.8.0|26.3.11') }
+    )
+
+    $macCurrent = @(
+        @{ Name = '2603.11'; Min = '26.3.11'; EndOfLife = '2027-12-24' }
+        @{ Name = '2603'; Min = '26.3.0'; EndOfLife = '2027-10-06' }
+        @{ Name = '2511'; Min = '25.11.0'; EndOfLife = '2027-06-19' }
+        @{ Name = '2508.10'; Min = '25.8.10'; EndOfLife = '2027-04-28' }
+        @{ Name = '2508'; Min = '25.8.0'; EndOfLife = '2027-03-15' }
+        @{ Name = '2505.10'; Min = '25.5.10'; EndOfLife = '2027-01-30' }
+        @{ Name = '2505'; Min = '25.5.0'; EndOfLife = '2027-01-02' }
+        @{ Name = '2503'; Min = '25.3.0'; EndOfLife = '2026-10-09' }
+        @{ Name = '2411.10'; Min = '24.11.10'; EndOfLife = '2026-08-05' }
+        @{ Name = '2411'; Min = '24.11.0'; EndOfLife = '2026-06-12' }
+        @{ Name = '2409.10'; Min = '24.9.10'; EndOfLife = '2026-04-24' }
+        @{ Name = '2409'; Min = '24.9.0'; EndOfLife = '2026-03-16' }
+        @{ Name = '2405.11'; Min = '24.5.11'; EndOfLife = '2026-02-09' }
+        @{ Name = '2405'; Min = '24.5.0'; EndOfLife = '2026-01-09' }
+        @{ Name = '2402.10'; Min = '24.2.10'; EndOfLife = '2025-11-23' }
+        @{ Name = '2402'; Min = '24.2.0'; EndOfLife = '2025-10-11' }
+        @{ Name = '2311'; Min = '23.11.0'; EndOfLife = '2025-06-21' }
+        @{ Name = '2309'; Min = '23.9.0'; EndOfLife = '2025-03-27' }
+        @{ Name = '2305'; Min = '23.5.0'; EndOfLife = '2024-11-29' }
+        @{ Name = '2301'; Min = '23.1.0'; EndOfLife = '2024-07-12' }
+    )
+
+    $macCves = @(
+        @{ Id = 'CVE-2024-5027'; Reference = 'CTX675851'; Ranges = @('0.0|24.2.10') }
+        @{ Id = 'CVE-2024-7549'; Reference = 'CTX691484'; Ranges = @('0.0|24.9.0') }
+        @{ Id = 'CVE-2026-18751'; Reference = 'CTX696911'; Ranges = @('0.0|26.7.0') }
+    )
+
+    $linuxCurrent = @(
+        @{ Name = '2604'; Min = '26.4.0'; EndOfLife = '2027-12-23' }
+        @{ Name = '2601'; Min = '26.1.0'; EndOfLife = '2027-09-05' }
+        @{ Name = '2508.10'; Min = '25.8.10'; EndOfLife = '2027-06-12' }
+        @{ Name = '2508'; Min = '25.8.0'; EndOfLife = '2027-04-17' }
+        @{ Name = '2505'; Min = '25.5.0'; EndOfLife = '2026-12-17' }
+        @{ Name = '2503'; Min = '25.3.0'; EndOfLife = '2026-09-26' }
+        @{ Name = '2411'; Min = '24.11.0'; EndOfLife = '2026-06-13' }
+        @{ Name = '2408'; Min = '24.8.0'; EndOfLife = '2026-04-09' }
+        @{ Name = '2405'; Min = '24.5.0'; EndOfLife = '2025-12-12' }
+        @{ Name = '2402'; Min = '24.2.0'; EndOfLife = '2025-09-07' }
+        @{ Name = '2311'; Min = '23.11.0'; EndOfLife = '2025-07-13' }
+        @{ Name = '2309'; Min = '23.9.0'; EndOfLife = '2025-03-28' }
+        @{ Name = '2308'; Min = '23.8.0'; EndOfLife = '2025-02-28' }
+        @{ Name = '2305'; Min = '23.5.0'; EndOfLife = '2024-11-30' }
+        @{ Name = '2303'; Min = '23.3.0'; EndOfLife = '2024-09-23' }
+        @{ Name = '2212'; Min = '22.12.0'; EndOfLife = '2024-06-01' }
+    )
+
+    $linuxCves = @(
+        # CVE-2022-21825 only applies when App Protection is installed
+        @{ Id = 'CVE-2022-21825'; Reference = 'CTX338435'; Ranges = @('20.12.0|21.12.0') }
+        @{ Id = 'CVE-2023-24486'; Reference = 'CTX477618'; Ranges = @('0.0|23.2.0') }
+    )
+
+    $releaseData = @{
+        Windows = @{
+            Ltsr    = $windowsLtsr
+            Current = $windowsCurrent
+            Cves    = $windowsCves
+        }
+        Mac     = @{
+            Ltsr    = @()
+            Current = $macCurrent
+            Cves    = $macCves
+        }
+        Linux   = @{
+            Ltsr    = @()
+            Current = $linuxCurrent
+            Cves    = $linuxCves
+        }
+    }
+
+    return $releaseData
+}
+
+function ConvertTo-CWANormalizedVersion {
+    <#
+    .SYNOPSIS
+        Converts a version string or object to a four-part System.Version.
+
+    .DESCRIPTION
+        Parses a Citrix Workspace app version (e.g. '26.03.0.39', '26.3.10') and fills
+        undefined Build/Revision parts with 0. System.Version treats an undefined part as -1,
+        which makes '26.3.10' compare lower than '26.3.10.0' and breaks range checks.
+
+    .PARAMETER Version
+        The version to normalize.
+
+    .EXAMPLE
+        ConvertTo-CWANormalizedVersion -Version '26.03.10'
+
+    .NOTES
+        Function  : ConvertTo-CWANormalizedVersion
+        Author    : John Billekens
+        Copyright : Copyright (c) John Billekens Consultancy
+        Version   : 2026.0927.2134
+    #>
+    [CmdletBinding()]
+    [OutputType([System.Version])]
+    param (
+        [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
+        [ValidateNotNullOrEmpty()]
+        [Object]$Version
+    )
+
+    process {
+        $parsedVersion = $null
+        if (-not [System.Version]::TryParse("$($Version)".Trim(), [ref]$parsedVersion)) {
+            throw (New-Object -TypeName System.FormatException -ArgumentList "Invalid version string '$($Version)'")
+        }
+
+        $build = [System.Math]::Max($parsedVersion.Build, 0)
+        $revision = [System.Math]::Max($parsedVersion.Revision, 0)
+        New-Object -TypeName System.Version -ArgumentList $parsedVersion.Major, $parsedVersion.Minor, $build, $revision
+    }
+}
+
+function Get-CWAVersionAssessment {
+    <#
+    .SYNOPSIS
+        Evaluates a Citrix Workspace app version against lifecycle and CVE reference data.
+
+    .DESCRIPTION
+        Generic, platform-agnostic evaluation engine used by the Test-CWA*Version functions.
+
+        Lifecycle resolution:
+            1. LTSR: the version falls inside an LTSR line (Min <= version < Max).
+            2. Current Release: the listed release in the same YY.M family with the highest
+               Min <= version. When the version is below every listed release of its own family
+               (unlisted build such as 2503.1), the first listed release of that family is used.
+               Without a matching family, the nearest lower listed release is used.
+            3. Older than the oldest listed release: EOL.
+        A release is EOL when the reference date is on or after its EOL date, or when no EOL
+        date is listed (legacy release).
+
+        CVE resolution: the version is affected when it falls inside any affected range.
+
+    .PARAMETER Version
+        The client version to evaluate.
+
+    .PARAMETER Platform
+        The platform name of the reference data set (Windows, Mac or Linux).
+
+    .PARAMETER ReferenceDate
+        The date used for the EOL check. Defaults to today.
+
+    .EXAMPLE
+        Get-CWAVersionAssessment -Version '24.9.1.207' -Platform 'Windows'
+
+    .NOTES
+        Function  : Get-CWAVersionAssessment
+        Author    : John Billekens
+        Copyright : Copyright (c) John Billekens Consultancy
+        Version   : 2026.0927.2134
+    #>
+    [CmdletBinding()]
+    [OutputType([PSCustomObject])]
+    param (
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [Object]$Version,
+
+        [Parameter(Mandatory = $true)]
+        [ValidateSet('Windows', 'Mac', 'Linux')]
+        [String]$Platform,
+
+        [Parameter()]
+        [DateTime]$ReferenceDate = (Get-Date).Date
+    )
+
+    $normalizedVersion = ConvertTo-CWANormalizedVersion -Version $Version
+    $data = (Get-CWAReleaseData).$Platform
+    $invariantCulture = [System.Globalization.CultureInfo]::InvariantCulture
+
+    $matchedRelease = $null
     $isLtsrVersion = $false
-    $isCveImpacted = $false
-    $isEOL = $false
+
+    foreach ($ltsr in $data.Ltsr) {
+        $ltsrMin = ConvertTo-CWANormalizedVersion -Version $ltsr.Min
+        $ltsrMax = ConvertTo-CWANormalizedVersion -Version $ltsr.Max
+        if ($normalizedVersion -ge $ltsrMin -and $normalizedVersion -lt $ltsrMax) {
+            $matchedRelease = $ltsr
+            $isLtsrVersion = $true
+            break
+        }
+    }
+
+    if ($null -eq $matchedRelease) {
+        $releases = foreach ($release in $data.Current) {
+            [PSCustomObject]@{
+                Name      = $release.Name
+                Min       = ConvertTo-CWANormalizedVersion -Version $release.Min
+                EndOfLife = $release.EndOfLife
+            }
+        }
+
+        $familyReleases = @($releases | Where-Object -FilterScript {
+                $_.Min.Major -eq $normalizedVersion.Major -and $_.Min.Minor -eq $normalizedVersion.Minor
+            })
+
+        $isListedBuild = $true
+        if ($familyReleases.Count -gt 0) {
+            $lowerFamilyRelease = $familyReleases | Where-Object -FilterScript { $_.Min -le $normalizedVersion } |
+                Sort-Object -Property Min -Descending | Select-Object -First 1
+            if ($null -ne $lowerFamilyRelease) {
+                $matchedRelease = $lowerFamilyRelease
+            } else {
+                $matchedRelease = $familyReleases | Sort-Object -Property Min | Select-Object -First 1
+                $isListedBuild = $false
+            }
+        } else {
+            $matchedRelease = $releases | Where-Object -FilterScript { $_.Min -le $normalizedVersion } |
+                Sort-Object -Property Min -Descending | Select-Object -First 1
+            $isListedBuild = $false
+        }
+    }
+
+    $endOfLifeDate = $null
+    if ($null -eq $matchedRelease) {
+        $releaseName = 'Legacy (not listed)'
+        $isEOL = $true
+    } else {
+        $releaseName = $matchedRelease.Name
+        if ($isLtsrVersion -eq $false -and $isListedBuild -eq $false) {
+            $releaseName = "Unlisted (lifecycle of $($matchedRelease.Name))"
+        }
+        if ([String]::IsNullOrEmpty($matchedRelease.EndOfLife)) {
+            $isEOL = $true
+        } else {
+            $endOfLifeDate = [DateTime]::ParseExact($matchedRelease.EndOfLife, 'yyyy-MM-dd', $invariantCulture)
+            $isEOL = ($ReferenceDate.Date -ge $endOfLifeDate)
+        }
+    }
+
     $cves = @()
-    #CVE-2021-22907
-    #https://support.citrix.com/support-home/kbsearch/article?articleNumber=CTX307794'
-    #Solved
-    #Citrix Workspace App 2105 and later >=19.13.0 <21.5.0
-    #Citrix Workspace App 1912 LTSR CU4 and later cumulative updates >=19.12.0 <19.12.4000
-
-    #CVE-2023-24483
-    #https://support.citrix.com/support-home/kbsearch/article?articleNumber=CTX477616
-    #Affected:
-    #Citrix Workspace App versions before 2212 >=22.04.0 <22.12.0
-    #Citrix Workspace App 2203 LTSR before CU2 >=19.13.0 <22.3.2000
-    #Citrix Virtual Apps and Desktops 1912 LTSR before CU6  (19.12.6000.9)
-
-    #CVE-2023-24484 & CVE-2023-24485
-    #https://support.citrix.com/support-home/kbsearch/article?articleNumber=CTX477617
-    #Affected:
-    #Citrix Workspace App versions before 2212 >=22.04.0 <22.12.0
-    #Citrix Workspace App 2203 LTSR before CU2 >=19.13.0 <22.3.2000
-    #Citrix Workspace App 1912 LTSR before CU7 Hotfix 2 <19.12.7002
-
-    #CVE-2020-13884 & CVE-2020-13885
-    #https://support.citrix.com/support-home/kbsearch/article?articleNumber=CTX275460
-    #Citrix Workspace App for Windows versions before 1912 < 19.12.0
-    #Cirtrix Receiver 4.9 Cumulative Update 9 or later < 4.9.9002
-
-    #CVE-2024-6286
-    #https://support.citrix.com/support-home/kbsearch/article?articleNumber=CTX678036
-    #Affected:
-    #Citrix Workspace app for Windows versions before 2203.1 LTSR CU6 Hotfix 2 <22.03.6002.6116
-    #Citrix Workspace app for Windows versions before 2403.1 >=24.03.0 <24.3.1.97
-    #Citrix Workspace app for Windows versions before 2402 LTSR >=22.04.0 <24.2.0.172
-
-    #CVE-2024-7889 and CVE-2024-7890
-    #https://support.citrix.com/support-home/kbsearch/article?articleNumber=CTX691485
-    #Affected:
-    #Citrix Workspace app for Windows versions before 2405 >=24.03.0 <24.05.0
-    #Citrix Workspace app for Windows versions before 2402 LTSR CU1 <24.2.1000.1016
-
-    #CVE-2025-4879
-    #https://support.citrix.com/support-home/kbsearch/article?articleNumber=CTX694718
-    #Affected:
-    #Citrix Workspace app for Windows versions before 2409 >=24.3.0 <24.9.0
-    #Citrix Workspace app for Windows versions before 2402 LTSR CU2 Hotfix 1 <24.2.2001.3
-    #Citrix Workspace app for Windows versions before 2402 LTSR CU3 Hotfix 1 >=24.2.3000 <24.2.3001.9
-
-    switch ($version) {
-        { $_ -ge [Version]"19.13.0" -and $_ -lt [Version]"21.5.0" } {
-            # Citrix Workspace App versions before 2105 - CTX307794
-            $isCveImpacted = $true
-            $cves += "CVE-2021-22907"
-        }
-        { $_ -lt [Version]"19.12.4000" } {
-            # Citrix Workspace App versions before 1912 LTSR CU4 - CTX307794
-            $isCveImpacted = $true
-            $cves += "CVE-2021-22907"
-        }
-        { $_ -ge [Version]"22.04.0" -and $_ -lt [Version]"22.12.0.48" } {
-            # Citrix Workspace App versions before 2212 - CTX477616 / CTX477617
-            $isCveImpacted = $true
-            $cves += "CVE-2023-24483"
-            $cves += "CVE-2023-24484"
-            $cves += "CVE-2023-24485"
-        }
-        { $_ -ge [Version]"19.13.0" -and $_ -lt [Version]"22.03.2000" } {
-            # Citrix Workspace App 2203 LTSR before CU2 - CTX477616 / CTX477617
-            $isCveImpacted = $true
-            $cves += "CVE-2023-24483"
-            $cves += "CVE-2023-24484"
-            $cves += "CVE-2023-24485"
-        }
-        { $_ -lt [Version]"19.12.6000.9" } {
-            # Citrix Virtual Apps and Desktops 1912 LTSR before CU6  (19.12.6000.9) - CTX477616
-            $isCveImpacted = $true
-            $cves += "CVE-2023-24483"
-        }
-        { $_ -lt [Version]"19.12.7002" } {
-            # Citrix Workspace App 1912 LTSR before CU7 Hotfix 2 (19.12.7002) - CTX477617
-            $isCveImpacted = $true
-            $cves += "CVE-2023-24484"
-            $cves += "CVE-2023-24485"
-        }
-        { $_ -lt [Version]"19.12.0" } {
-            # These vulnerabilities affect supported versions of Citrix Workspace app for Windows before 1912 and supported versions of Citrix Receiver for Windows. - CTX275460
-            $isCveImpacted = $true
-            $cves += "CVE-2020-13884"
-            $cves += "CVE-2020-13885"
-        }
-        { $_ -lt [Version]"22.03.6002.6116" } {
-            # Citrix Workspace app for Windows versions before 2203.1 LTSR CU6 Hotfix 2 - CTX678036
-            $isCveImpacted = $true
-            $cves += "CVE-2024-6286"
-        }
-        { $_ -ge [Version]"24.03.0" -and $_ -lt [Version]"24.3.1.97" } {
-            # Citrix Workspace app for Windows versions before 2403.1 - CTX678036
-            $isCveImpacted = $true
-            $cves += "CVE-2024-6286"
-        }
-        { $_ -ge [Version]"22.04.0" -and $_ -lt [Version]"24.2.0.172" } {
-            # Citrix Workspace app for Windows versions before 2402 LTSR - CTX678036
-            $isCveImpacted = $true
-            $cves += "CVE-2024-6286"
-        }
-        { $_ -ge [Version]"24.03.0" -and $_ -lt [Version]"24.05.0" } {
-            # Citrix Workspace app for Windows versions before 2405 - CTX691485
-            $isCveImpacted = $true
-            $cves += "CVE-2024-7889"
-            $cves += "CVE-2024-7890"
-        }
-        { $_ -lt [Version]"24.2.1000.1016" } {
-            # Citrix Workspace app for Windows versions before 2402 LTSR CU1 - CTX691485
-            $isCveImpacted = $true
-            $cves += "CVE-2024-7889"
-            $cves += "CVE-2024-7890"
-        }
-        { $_ -ge [Version]"24.3.0" -and $_ -lt [Version]"24.9.0" } {
-            # Citrix Workspace app for Windows versions before 2409 - CTX694718
-            $isCveImpacted = $true
-            $cves += "CVE-2025-4879"
-        }
-        { $_ -lt [Version]"24.2.2001.3" } {
-            # Citrix Workspace app for Windows versions before 2402 LTSR CU2 Hotfix 1 - CTX694718
-            $isCveImpacted = $true
-            $cves += "CVE-2025-4879"
-        }
-        { $_ -ge [Version]"24.2.3000" -and $_ -lt [Version]"24.2.3001.9" } {
-            # Citrix Workspace app for Windows versions before 2402 LTSR CU3 Hotfix 1 - CTX694718
-            $isCveImpacted = $true
-            $cves += "CVE-2025-4879"
-        }
-        { $_ -le [Version]"19.11.0" -or $_ -le [Version]"19.12.7002" } {
-            $isCveImpacted = $true
-        }
-
-        #LTSR
-        { $_ -ge [Version]"25.7.0" -and $_ -lt [Version]"25.8.0" -and (Get-Date) -lt [DateTime]"2028-9-16" } {
-            $isEOL = $true
-        }
-        { $_ -ge [Version]"25.7.0" -and $_ -lt [Version]"25.8.0" } {
-            $isLtsrVersion = $true
-        }
-        { $_ -ge [Version]"24.2.0" -and $_ -lt [Version]"24.3.0" -and (Get-Date) -lt [DateTime]"2027-4-8" } {
-            $isEOL = $true
-        }
-        { $_ -ge [Version]"24.2.0" -and $_ -lt [Version]"24.3.0" } {
-            $isLtsrVersion = $true
-        }
-        { $_ -gt [Version]"22.03.0" -and $_ -lt [Version]"22.4.0" } {
-            $isLtsrVersion = $true
-            $isEOL = $true
-        }
-        { $_ -gt [Version]"19.12.0" -and $_ -lt [Version]"19.13.0" } {
-            $isLtsrVersion = $true
-            $isEOL = $true
-        }
-        { $_ -gt [Version]"4.9.0" -and $_ -lt [Version]"4.10.0" } {
-            $isLtsrVersion = $true
-            $isEOL = $true
-        }
-
-        #https://www.citrix.com/support/product-lifecycle/workspace-app.html
-        { $_ -eq [Version]"26.3.1.194" -and (Get-Date) -ge [DateTime]"2027-11-11" } {
-            $isEOL = $true
-        }
-        { $_ -eq [Version]"26.3.0.188" -and (Get-Date) -ge [DateTime]"2027-10-30" } {
-            $isEOL = $true
-        }
-        { $_ -eq [Version]"25.11.10.50" -and (Get-Date) -ge [DateTime]"2027-8-17" } {
-            $isEOL = $true
-        }
-        { $_ -eq [Version]"25.11.1.209" -and (Get-Date) -ge [DateTime]"2027-7-16" } {
-            $isEOL = $true
-        }
-        { $_ -eq [Version]"25.11.0.200" -and (Get-Date) -ge [DateTime]"2027-6-23" } {
-            $isEOL = $true
-        }
-        { $_ -eq [Version]"25.8.10.36" -and (Get-Date) -ge [DateTime]"2027-5-3" } {
-            $isEOL = $true
-        }
-        { $_ -eq [Version]"25.8.0.71" -and (Get-Date) -ge [DateTime]"2027-3-29" } {
-            $isEOL = $true
-        }
-        { $_ -eq [Version]"25.3.2.196" -and (Get-Date) -ge [DateTime]"2026-11-22" } {
-            $isEOL = $true
-        }
-        { $_ -eq [Version]"24.9.10.28" -and (Get-Date) -ge [DateTime]"2026-7-16" } {
-            $isEOL = $true
-        }
-        { $_ -eq [Version]"24.9.0.201" -and (Get-Date) -ge [DateTime]"2026-5-26" } {
-            $isEOL = $true
-        }
-        { $_ -eq [Version]"24.5.11.31" -and (Get-Date) -ge [DateTime]"2026-4-7" } {
-            $isEOL = $true
-        }
-        { $_ -eq [Version]"24.5.10.29" -and (Get-Date) -ge [DateTime]"2026-2-8" } {
-            $isEOL = $true
-        }
-        { $_ -eq [Version]"24.5.0.131" -and (Get-Date) -ge [DateTime]"2026-1-8" } {
-            $isEOL = $true
-        }
-        { $_ -eq [Version]"24.3.1.97" -and (Get-Date) -ge [DateTime]"2025-11-21" } {
-            $isEOL = $true
-        }
-        { $_ -eq [Version]"24.3.0.93" -and (Get-Date) -ge [DateTime]"2025-10-24" } {
-            $isEOL = $true
-        }
-        { $_ -eq [Version]"23.11.0.132" -and (Get-Date) -ge [DateTime]"2025-6-25" } {
-            $isEOL = $true
-        }
-        { $_ -eq [Version]"23.9.1.104" -and (Get-Date) -ge [DateTime]"2025-5-2" } {
-            $isEOL = $true
-        }
-        { $_ -eq [Version]"23.9.0.99" -and (Get-Date) -ge [DateTime]"2025-4-10" } {
-            $isEOL = $true
-        }
-        { $_ -eq [Version]"23.7.1.18" -and (Get-Date) -ge [DateTime]"2025-2-12" } {
-            $isEOL = $true
-        }
-        { $_ -eq [Version]"23.7.0.15" -and (Get-Date) -ge [DateTime]"2025-2-12" } {
-            $isEOL = $true
-        }
-        { $_ -eq [Version]"23.5.1.83" -and (Get-Date) -ge [DateTime]"2025-1-3" } {
-            $isEOL = $true
-        }
-        { $_ -eq [Version]"23.3.0.55" -and (Get-Date) -ge [DateTime]"2024-9-29" } {
-            $isEOL = $true
-        }
-        { $_ -eq [Version]"23.2.0.38" -and (Get-Date) -ge [DateTime]"2024-8-16" } {
-            $isEOL = $true
-        }
-        { $_ -eq [Version]"22.12.0.48" -and (Get-Date) -ge [DateTime]"2024-7-23" } {
-            $isEOL = $true
-        }
-        { $_ -le [Version]"22.10.5.14" } {
-            $isEOL = $true
+    foreach ($cve in $data.Cves) {
+        foreach ($range in $cve.Ranges) {
+            $rangeParts = $range.Split('|')
+            $rangeMin = ConvertTo-CWANormalizedVersion -Version $rangeParts[0]
+            $rangeMax = ConvertTo-CWANormalizedVersion -Version $rangeParts[1]
+            if ($normalizedVersion -ge $rangeMin -and $normalizedVersion -lt $rangeMax) {
+                $cves += $cve.Id
+                break
+            }
         }
     }
-    $cves = $cves | Sort-Object -Unique
-    $result = [PSCustomObject]@{
-        Version         = $version
-        Evaluated       = $true
-        IsLTSR          = $isLtsrVersion
-        IsisCveImpacted = $isCveImpacted
-        IsEOL           = $isEOL
-        UpdateInfo      = $null
-        CVEs            = $cves
+    $cves = @($cves | Sort-Object -Unique)
+    $isCveImpacted = ($cves.Count -gt 0)
+
+    if ($isEOL -and $isCveImpacted) {
+        $status = 'EOL & CVE'
+    } elseif ($isEOL) {
+        $status = 'EOL'
+    } elseif ($isCveImpacted) {
+        $status = 'CVE'
+    } else {
+        $status = 'OK'
     }
-    try {
-        $latestVersion = Get-LatestCWAWindowsVersionInfo
-        if ($isLtsrVersion -eq $false) {
-            $latestVersion = $latestVersion | Where-Object { $_.Stream -like "Current" }
+
+    [PSCustomObject]@{
+        Version       = $normalizedVersion
+        Platform      = $Platform
+        Evaluated     = $true
+        Release       = $releaseName
+        IsLTSR        = $isLtsrVersion
+        IsEOL         = $isEOL
+        EndOfLife     = $endOfLifeDate
+        IsCveImpacted = $isCveImpacted
+        CVEs          = $cves
+        Status        = $status
+        UpdateInfo    = $null
+    }
+}
+
+function Test-CWAWindowsVersion {
+    <#
+    .SYNOPSIS
+        Evaluates a Citrix Workspace app for Windows version for EOL and CVE exposure.
+
+    .DESCRIPTION
+        Wrapper around Get-CWAVersionAssessment for the Windows platform. Optionally retrieves
+        the latest available version from the Citrix update catalog.
+
+    .PARAMETER Version
+        The Citrix Workspace app for Windows version.
+
+    .PARAMETER ReferenceDate
+        The date used for the EOL check. Defaults to today.
+
+    .PARAMETER SkipUpdateInfo
+        Do not query the Citrix update catalog for the latest version.
+
+    .EXAMPLE
+        Test-CWAWindowsVersion -Version '25.7.3000.3034' -SkipUpdateInfo
+
+    .NOTES
+        Function  : Test-CWAWindowsVersion
+        Author    : John Billekens
+        Copyright : Copyright (c) John Billekens Consultancy
+        Version   : 2026.0927.2134
+    #>
+    [CmdletBinding()]
+    [OutputType([PSCustomObject])]
+    param (
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [Object]$Version,
+
+        [Parameter()]
+        [DateTime]$ReferenceDate = (Get-Date).Date,
+
+        [Parameter()]
+        [Switch]$SkipUpdateInfo
+    )
+
+    $assessmentParams = @{
+        Version       = $Version
+        Platform      = 'Windows'
+        ReferenceDate = $ReferenceDate
+    }
+    $result = Get-CWAVersionAssessment @assessmentParams
+
+    if (-not $SkipUpdateInfo) {
+        try {
+            $latestVersion = Get-LatestCWAWindowsVersionInfo
+            if ($result.IsLTSR -eq $false) {
+                $latestVersion = $latestVersion | Where-Object -FilterScript { $_.Stream -like 'Current' }
+            }
+            $result.UpdateInfo = $latestVersion
+        } catch {
+            Write-Warning -Message "Failed to get the latest version information, $($_.Exception.Message)"
+            $result.UpdateInfo = $null
         }
-        $result.UpdateInfo = $latestVersion
-    } catch {
-        Write-Warning "Failed to get the latest version information, $($_.Exception.Message)"
-        $result.UpdateInfo = $null
     }
-    Write-Output $result
+
+    Write-Output -InputObject $result
 }
 
 function Test-CWALinuxVersion {
+    <#
+    .SYNOPSIS
+        Evaluates a Citrix Workspace app for Linux version for EOL and CVE exposure.
+
+    .DESCRIPTION
+        Wrapper around Get-CWAVersionAssessment for the Linux platform.
+        Note: CVE-2022-21825 only applies when App Protection is installed.
+
+    .PARAMETER Version
+        The Citrix Workspace app for Linux version.
+
+    .PARAMETER ReferenceDate
+        The date used for the EOL check. Defaults to today.
+
+    .EXAMPLE
+        Test-CWALinuxVersion -Version '25.08.10.111'
+
+    .NOTES
+        Function  : Test-CWALinuxVersion
+        Author    : John Billekens
+        Copyright : Copyright (c) John Billekens Consultancy
+        Version   : 2026.0927.2134
+    #>
     [CmdletBinding()]
+    [OutputType([PSCustomObject])]
     param (
-        [Version]$Version
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [Object]$Version,
+
+        [Parameter()]
+        [DateTime]$ReferenceDate = (Get-Date).Date
     )
-    $isLtsrVersion = $false
-    $isCveImpacted = $false
-    $isEOL = $false
-    $cves = @()
-    #CVE-2023-24486
-    #https://support.citrix.com/support-home/kbsearch/article?articleNumber=CTX477618
-    #Affected:
-    #Citrix Workspace App versions before 2302 <23.02.0
-    switch ($version) {
-        { $_ -lt [Version]"23.02.0" } {
-            # Citrix Workspace App versions before 2302 - CTX477618
-            $isCveImpacted = $true
-            $cves += "CVE-2023-24486"
-        }
-        { $_ -lt [Version]"22.9" -and (Get-Date) -ge [DateTime]"2024-3-29" } {
-            $isEOL = $true
-        }
-        { $_ -lt [Version]"22.11" -and (Get-Date) -ge [DateTime]"2024-5-08" } {
-            $isEOL = $true
-        }
-        { $_ -lt [Version]"22.12" -and (Get-Date) -ge [DateTime]"2024-6-1" } {
-            $isEOL = $true
-        }
-        { $_ -lt [Version]"23.2" -and (Get-Date) -ge [DateTime]"2024-8-1" } {
-            $isEOL = $true
-        }
-        { $_ -lt [Version]"23.3" -and (Get-Date) -ge [DateTime]"2024-9-23" } {
-            $isEOL = $true
-        }
-        { $_ -lt [Version]"23.5" -and (Get-Date) -ge [DateTime]"2024-11-30" } {
-            $isEOL = $true
-        }
-        { $_ -lt [Version]"23.7" -and (Get-Date) -ge [DateTime]"2025-1-6" } {
-            $isEOL = $true
-        }
-        { $_ -lt [Version]"23.9" -and (Get-Date) -ge [DateTime]"2025-4-28" } {
-            $isEOL = $true
-        }
-        { $_ -lt [Version]"23.11" -and (Get-Date) -ge [DateTime]"2025-7-13" } {
-            $isEOL = $true
-        }
-        { $_ -lt [Version]"24.2" -and (Get-Date) -ge [DateTime]"2025-9-7" } {
-            $isEOL = $true
-        }
-        { $_ -lt [Version]"24.5" -and (Get-Date) -ge [DateTime]"2025-12-12" } {
-            $isEOL = $true
-        }
-        { $_ -lt [Version]"24.9" -and (Get-Date) -ge [DateTime]"2026-4-9" } {
-            $isEOL = $true
-        }
-        { $_ -lt [Version]"24.12" -and (Get-Date) -ge [DateTime]"2026-6-13" } {
-            $isEOL = $true
-        }
-        { $_ -lt [Version]"25.4" -and (Get-Date) -ge [DateTime]"2026-9-26" } {
-            $isEOL = $true
-        }
-        { $_ -lt [Version]"25.6" -and (Get-Date) -ge [DateTime]"2026-12-17" } {
-            $isEOL = $true
-        }
-        { $_ -lt [Version]"25.8.10" -and (Get-Date) -ge [DateTime]"2027-4-17" } {
-            $isEOL = $true
-        }
-        { $_ -lt [Version]"25.8.11" -and (Get-Date) -ge [DateTime]"2027-6-27" } {
-            $isEOL = $true
-        }
-        { $_ -gt [Version]"22.03.0" -and $_ -lt [Version]"22.4.0" } {
-            $isLtsrVersion = $true
-        }
-        { $_ -gt [Version]"19.12.0" -and $_ -lt [Version]"19.13.0" } {
-            $isLtsrVersion = $true
-        }
-        { $_ -gt [Version]"4.9.0" -and $_ -lt [Version]"4.10.0" } {
-            $isLtsrVersion = $true
-        }
-        { $_ -ge [Version]"24.2.0" -and $_ -lt [Version]"24.3.0" } {
-            $isLtsrVersion = $true
-        }
+
+    $assessmentParams = @{
+        Version       = $Version
+        Platform      = 'Linux'
+        ReferenceDate = $ReferenceDate
     }
-    $cves = $cves | Sort-Object -Unique
-    $result = [PSCustomObject]@{
-        Version         = $version
-        Evaluated       = $true
-        IsLTSR          = $isLtsrVersion
-        IsisCveImpacted = $isCveImpacted
-        IsEOL           = $isEOL
-        UpdateInfo      = $null
-        CVEs            = $cves
-    }
-    Write-Output $result
+    Get-CWAVersionAssessment @assessmentParams
 }
 
 function Test-CWAMacVersion {
-    [CmdletBinding()]
-    param (
-        [Version]$Version
-    )
-    $isLtsrVersion = $false
-    $isCveImpacted = $false
-    $isEOL = $false
-    $cves = @()
-    #CVE-2024-5027
-    #https://support.citrix.com/support-home/kbsearch/article?articleNumber=CTX675851
-    #Affected:
-    #Citrix Workspace app for Mac before 2402.10 <24.02.10
+    <#
+    .SYNOPSIS
+        Evaluates a Citrix Workspace app for Mac version for EOL and CVE exposure.
 
-    #CVE-2024-7549
-    #https://support.citrix.com/s/article/CTX691484-citrix-workspace-app-for-mac-security-bulletin-for-cve20247549
-    #Affected:
-    #Citrix Workspace app for Mac before 2409 <24.09.0.54
-    switch ($version) {
-        { $_ -lt [Version]"24.02.10" } {
-            # Citrix Workspace app for Mac before 2402.10 - CTX675851
-            $isCveImpacted = $true
-            $cves += "CVE-2024-5027"
-        }
-        { $_ -lt [Version]"24.09.0.54" } {
-            # Citrix Workspace app for Mac before 2409 - CTX691484
-            $isCveImpacted = $true
-            $cves += "CVE-2024-7549"
-        }
-        { $_ -gt [Version]"22.03.0" -and $_ -lt [Version]"22.4.0" } {
-            $isLtsrVersion = $true
-        }
-        { $_ -gt [Version]"19.12.0" -and $_ -lt [Version]"19.13.0" } {
-            $isLtsrVersion = $true
-        }
-        { $_ -gt [Version]"4.9.0" -and $_ -lt [Version]"4.10.0" } {
-            $isLtsrVersion = $true
-        }
-        { $_ -ge [Version]"24.2.0" -and $_ -lt [Version]"24.3.0" } {
-            $isLtsrVersion = $true
-        }
-        { $_ -le [Version]"25.11.0.36" -and (Get-Date) -ge [DateTime]"2027-06-19" } {
-            $isEOL = $true
-        }
-        { $_ -le [Version]"25.08.10.31" -and (Get-Date) -ge [DateTime]"2027-4-28" } {
-            $isEOL = $true
-        }
-        { $_ -le [Version]"25.08.0.48" -and (Get-Date) -ge [DateTime]"2027-3-15" } {
-            $isEOL = $true
-        }
-        { $_ -le [Version]"25.05.10.16" -and (Get-Date) -ge [DateTime]"2027-1-30" } {
-            $isEOL = $true
-        }
-        { $_ -le [Version]"25.05.0.58" -and (Get-Date) -ge [DateTime]"2027-1-2" } {
-            $isEOL = $true
-        }
-        { $_ -le [Version]"25.03.0.95" -and (Get-Date) -ge [DateTime]"2026-10-9" } {
-            $isEOL = $true
-        }
-        { $_ -le [Version]"24.11.10.22" -and (Get-Date) -ge [DateTime]"2026-8-5" } {
-            $isEOL = $true
-        }
-        { $_ -le [Version]"24.11.0.55" -and (Get-Date) -ge [DateTime]"2026-6-12" } {
-            $isEOL = $true
-        }
-        { $_ -le [Version]"24.09.10.26" -and (Get-Date) -ge [DateTime]"2026-4-24" } {
-            $isEOL = $true
-        }
-        { $_ -le [Version]"24.09.0.54" -and (Get-Date) -ge [DateTime]"2026-3-16" } {
-            $isEOL = $true
-        }
-        { $_ -le [Version]"24.05.11.25" -and (Get-Date) -ge [DateTime]"2026-2-9" } {
-            $isEOL = $true
-        }
-        { $_ -le [Version]"24.05.0.89" -and (Get-Date) -ge [DateTime]"2026-1-9" } {
-            $isEOL = $true
-        }
-        { $_ -le [Version]"24.02.0.78" -and (Get-Date) -ge [DateTime]"2025-10-11" } {
-            $isEOL = $true
-        }
-        { $_ -le [Version]"23.1.0.67" -and (Get-Date) -ge [DateTime]"2025-6-21" } {
-            $isEOL = $true
-        }
-        { $_ -le [Version]"23.09.0.4" -and (Get-Date) -ge [DateTime]"2025-3-27" } {
-            $isEOL = $true
-        }
-        { $_ -le [Version]"23.08.0.57" -and (Get-Date) -ge [DateTime]"2025-3-15" } {
-            $isEOL = $true
-        }
-        { $_ -le [Version]"23.07.6.64" -and (Get-Date) -ge [DateTime]"2025-1-26" } {
-            $isEOL = $true
-        }
-        { $_ -le [Version]"23.06.0.3" -and (Get-Date) -ge [DateTime]"2024-12-22" } {
-            $isEOL = $true
-        }
-        { $_ -le [Version]"23.05.0.36" -and (Get-Date) -ge [DateTime]"2024-11-29" } {
-            $isEOL = $true
-        }
-        { $_ -le [Version]"23.04.0.36" -and (Get-Date) -ge [DateTime]"2024-10-13" } {
-            $isEOL = $true
-        }
-        { $_ -le [Version]"23.01.1.60" -and (Get-Date) -ge [DateTime]"2024-9-24" } {
-            $isEOL = $true
-        }
-        { $_ -le [Version]"23.01.0.53" -and (Get-Date) -ge [DateTime]"2024-7-12" } {
-            $isEOL = $true
-        }
-        { $_ -lt [Version]"23.01.0.53" } {
-            $isEOL = $true
-        }
+    .DESCRIPTION
+        Wrapper around Get-CWAVersionAssessment for the Mac platform.
+
+    .PARAMETER Version
+        The Citrix Workspace app for Mac version.
+
+    .PARAMETER ReferenceDate
+        The date used for the EOL check. Defaults to today.
+
+    .EXAMPLE
+        Test-CWAMacVersion -Version '26.03.11.50'
+
+    .NOTES
+        Function  : Test-CWAMacVersion
+        Author    : John Billekens
+        Copyright : Copyright (c) John Billekens Consultancy
+        Version   : 2026.0927.2134
+    #>
+    [CmdletBinding()]
+    [OutputType([PSCustomObject])]
+    param (
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [Object]$Version,
+
+        [Parameter()]
+        [DateTime]$ReferenceDate = (Get-Date).Date
+    )
+
+    $assessmentParams = @{
+        Version       = $Version
+        Platform      = 'Mac'
+        ReferenceDate = $ReferenceDate
     }
-    $cves = $cves | Sort-Object -Unique
-    $result = [PSCustomObject]@{
-        Version         = $version
-        Evaluated       = $true
-        IsLTSR          = $isLtsrVersion
-        IsisCveImpacted = $isCveImpacted
-        IsEOL           = $isEOL
-        UpdateInfo      = $null
-        CVEs            = $cves
-    }
-    Write-Output $result
+    Get-CWAVersionAssessment @assessmentParams
 }
 
 function Get-LatestCWAWindowsVersionInfo {
@@ -776,8 +836,14 @@ function Get-LocalWindowsCWAVersion {
     )
     foreach ($regPath in $regPaths) {
         if (Test-Path -Path $regPath) {
-            $version = Get-ChildItem -Path $regPath | Get-ItemProperty | Select-Object -Property DisplayVersion | Select-Object -ExpandProperty DisplayVersion
-            break
+            # Multiple InstallDetect subkeys can exist; use the highest valid version
+            $version = Get-ChildItem -Path $regPath | Get-ItemProperty | Select-Object -ExpandProperty DisplayVersion -ErrorAction SilentlyContinue |
+                Where-Object -FilterScript { -not [String]::IsNullOrEmpty($_) } |
+                ForEach-Object -Process { try { ConvertTo-CWANormalizedVersion -Version $_ } catch { Write-Verbose -Message "Ignoring invalid version '$($_)'" } } |
+                Sort-Object -Descending | Select-Object -First 1
+            if ($null -ne $version) {
+                break
+            }
         }
     }
     return $version
@@ -860,174 +926,239 @@ function Show-MessageToUser {
     return $true
 }
 
+function Invoke-CWAResultAction {
+    <#
+    .SYNOPSIS
+        Logs the evaluation result and shows the EOL/CVE message, optionally logging off the session.
+
+    .DESCRIPTION
+        Writes the evaluation result to the information stream and Application event log,
+        shows the CVE message (takes precedence) or EOL message when applicable and logs off
+        the session only when the matching logoff switch is set:
+            - LogoffOnEOL applies only when the version is EOL.
+            - LogoffOnCVE applies only when the version is CVE impacted.
+
+    .PARAMETER Result
+        The evaluation result object of a Test-CWA*Version function.
+
+    .PARAMETER Platform
+        The display name of the client platform.
+
+    .EXAMPLE
+        Invoke-CWAResultAction -Result $result -Platform 'Windows'
+
+    .NOTES
+        Function  : Invoke-CWAResultAction
+        Author    : John Billekens
+        Copyright : Copyright (c) John Billekens Consultancy
+        Version   : 2026.0927.2134
+    #>
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNull()]
+        [PSCustomObject]$Result,
+
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [String]$Platform
+    )
+
+    $hostText = @"
+Citrix Workspace App version check:
+Platform`t : $($Platform)
+Client Version`t : $($Result.Version)
+Evaluated`t : $($Result.Evaluated)
+Release`t`t : $($Result.Release)
+Is LTSR`t`t : $($Result.IsLTSR)
+Is CVE Impacted`t : $($Result.IsCveImpacted)
+Is EOL`t`t : $($Result.IsEOL)
+CVE's impacted`t : $($Result.CVEs -join ', ')
+"@
+
+    Write-Information -MessageData $hostText -InformationAction Continue
+    try {
+        $eventLogParams = @{
+            LogName     = 'Application'
+            Source      = 'Application'
+            EntryType   = 'Information'
+            EventId     = 219
+            Message     = $hostText
+            ErrorAction = 'SilentlyContinue'
+        }
+        # 219 = 67+87+65 => C (67) W (87) A (65) => https://cryptii.com/pipes/text-decimal
+        Write-EventLog @eventLogParams
+    } catch {
+        Write-Verbose -Message "Failed to write to the event log, $($_.Exception.Message)"
+    }
+
+    if ($Result.Evaluated -ne $true) {
+        Write-Verbose -Message "Version $($Result.Version) was not evaluated for $($Platform)"
+        return
+    }
+
+    $message = $null
+    if ($Result.IsCveImpacted -eq $true) {
+        $message = ("$($MessageTextCVE)").Replace('##platform##', $Platform)
+    } elseif ($Result.IsEOL -eq $true) {
+        $message = ("$($MessageTextEOL)").Replace('##platform##', $Platform)
+    }
+
+    if ($null -eq $message) {
+        Write-Verbose -Message "A supported version ($($Result.Version)) was detected for $($Platform)"
+        return
+    }
+
+    $logoffRequired = (($Result.IsEOL -eq $true -and [bool]$LogoffOnEOL) -or ($Result.IsCveImpacted -eq $true -and [bool]$LogoffOnCVE))
+    Write-Verbose -Message "Message: $($message)"
+    if ((Show-MessageToUser -Message $message -Title $MessageTitle) -and $logoffRequired) {
+        Write-Verbose -Message 'Logoff is enabled, logging off the user'
+        Invoke-LogoffSession
+    }
+}
+
 #end region functions
+
+#region Evaluate
+
+if ($PSCmdlet.ParameterSetName -eq 'Evaluate') {
+    foreach ($versionToEvaluate in $EvaluateVersion) {
+        try {
+            switch ($EvaluatePlatform) {
+                'Windows' {
+                    $evaluateParams = @{
+                        Version        = $versionToEvaluate
+                        ReferenceDate  = $ReferenceDate
+                        SkipUpdateInfo = $true
+                    }
+                    Test-CWAWindowsVersion @evaluateParams
+                }
+                'Mac' {
+                    Test-CWAMacVersion -Version $versionToEvaluate -ReferenceDate $ReferenceDate
+                }
+                'Linux' {
+                    Test-CWALinuxVersion -Version $versionToEvaluate -ReferenceDate $ReferenceDate
+                }
+            }
+        } catch [System.FormatException] {
+            Write-Warning -Message "Skipping '$($versionToEvaluate)': $($_.Exception.Message)"
+        }
+    }
+    return
+}
+
+#end region Evaluate
+
 $isWindowsOS = $false
 try {
     if ($isWindows -eq $true) {
         $isWindowsOS = $true
-    } elseif (([Environment]::OSVersion).VersionString -like "*windows*") {
+    } elseif (([Environment]::OSVersion).VersionString -like '*windows*') {
         $isWindowsOS = $true
     }
 } catch {
     $isWindowsOS = $false
 }
-Write-Verbose "RunLocal      : $RunLocal"
-Write-Verbose "Test          : $Test"
-Write-Verbose "Is Windows OS : $isWindowsOS"
+Write-Verbose -Message "RunLocal      : $($RunLocal)"
+Write-Verbose -Message "Test          : $($Test)"
+Write-Verbose -Message "Is Windows OS : $($isWindowsOS)"
+
 if ([bool]$RunLocal -eq $true -and [bool]$Test -eq $false -and $isWindowsOS -eq $true) {
     $clientVersion = Get-LocalWindowsCWAVersion
-    $platform = "Windows"
-    $result = Test-CWAWindowsVersion -Version $clientVersion
-    $hostText = @"
-Citrix Workspace App version check:
-Platform`t : $platform
-Client Version`t : $($result.Version)
-Evaluated`t : $($result.Evaluated)
-Is LTSR`t`t : $($result.IsLTSR)
-Is CVE Impacted`t : $($result.IsisCveImpacted)
-Is EOL`t`t : $($result.IsEOL)
-CVE's impacted`t : $($result.CVEs -join ', ')
-"@
-
-    Write-Information -MessageData $hostText -InformationAction Continue
-    try { Write-EventLog -LogName Application -Source "Application" -EntryType Information -EventId 219 -Message $hostText -ErrorAction SilentlyContinue } catch { <# Do Nothing #> }
-    # 219 = 67+87+65 => C (67) W (87) A (65) => https://cryptii.com/pipes/text-decimal
-    if ($result.Evaluated -eq $true -and $result.IsEOL -eq $true) {
-        $message = ("$MessageTextEOL").Replace("##platform##", $platform)
-        $showMessage = $true
-    }
-
-    if ($result.Evaluated -eq $true -and $result.IsisCveImpacted -eq $true) {
-        $message = ("$MessageTextCVE").Replace("##platform##", $platform)
-        $showMessage = $true
-    }
-
-    if ($showMessage -eq $true) {
-        Write-Verbose "Message: $message"
-        if ((Show-MessageToUser -Message $message -Title $MessageTitle) -and ($LogoffOnEOL -eq $true -or $LogoffOnCVE -eq $true)) {
-            Write-Verbose "Logoff is enabled, logging off the user"
-            Invoke-LogoffSession
-        }
+    $platform = 'Windows'
+    if ($null -eq $clientVersion) {
+        Write-Warning -Message 'Citrix Workspace app for Windows was not detected on this machine'
     } else {
-        Write-Verbose "A supported version ($($result.Version)) was detected for $($platform)"
+        $result = Test-CWAWindowsVersion -Version $clientVersion
+        Invoke-CWAResultAction -Result $result -Platform $platform
     }
-} elseif ((Test-Path -Path "HKLM:\SOFTWARE\Citrix\Ica\Session") -and ($Test -eq $false)) {
+} elseif ((Test-Path -Path 'HKLM:\SOFTWARE\Citrix\Ica\Session') -and ($Test -eq $false)) {
     try {
         $sessionId = [System.Diagnostics.Process]::GetCurrentProcess().SessionId
-        $connectionDetails = Get-ItemProperty -Path "HKLM:\SOFTWARE\Citrix\Ica\Session\$($sessionId)\Connection"
-        $clientVersion = [Version]$connectionDetails.ClientVersion
+        $connectionDetails = Get-ItemProperty -Path "HKLM:\SOFTWARE\Citrix\Ica\Session\$($sessionId)\Connection" -ErrorAction Stop
+        $clientVersion = ConvertTo-CWANormalizedVersion -Version $connectionDetails.ClientVersion
         $clientPlatform = $connectionDetails.ClientProductID
     } catch {
-        $clientVersion = "Unknown"
-        $clientPlatform = "0"
+        Write-Warning -Message "Failed to read the ICA session details, $($_.Exception.Message)"
+        $clientVersion = 'Unknown'
+        $clientPlatform = '0'
     }
-    Write-Verbose "Client PlatformID : $clientPlatform"
-    Write-Verbose "Client Version    : $clientVersion"
+    Write-Verbose -Message "Client PlatformID : $($clientPlatform)"
+    Write-Verbose -Message "Client Version    : $($clientVersion)"
     #end region GatherMetadata
 
     #region basics
 
     $result = [PSCustomObject]@{
-        Version         = $clientVersion
-        Evaluated       = $false
-        IsLTSR          = $false
-        IsisCveImpacted = $false
-        IsEOL           = $false
+        Version       = $clientVersion
+        Evaluated     = $false
+        Release       = $null
+        IsLTSR        = $false
+        IsCveImpacted = $false
+        IsEOL         = $false
+        CVEs          = @()
     }
 
     #end region basics
 
     switch ([String]$clientPlatform) {
-        "1" {
-            $platform = "Windows"
+        '1' {
+            $platform = 'Windows'
             $result = Test-CWAWindowsVersion -Version $clientVersion
         }
-        "81" {
-            $platform = "Linux"
+        '81' {
+            $platform = 'Linux'
             $result = Test-CWALinuxVersion -Version $clientVersion
         }
-        "82" {
-            $platform = "Mac OS"
+        '82' {
+            $platform = 'Mac OS'
             $result = Test-CWAMacVersion -Version $clientVersion
         }
-        "83" {
-            $platform = "iOS"
+        '83' {
+            $platform = 'iOS'
         }
-        "84" {
-            $platform = "Android"
+        '84' {
+            $platform = 'Android'
         }
-        "85" {
-            $platform = "Blackberry"
+        '85' {
+            $platform = 'Blackberry'
         }
-        "86" {
-            $platform = "Windows Phone 8/WinRT"
+        '86' {
+            $platform = 'Windows Phone 8/WinRT'
         }
-        "87" {
-            $platform = "Windows Mobile"
+        '87' {
+            $platform = 'Windows Mobile'
         }
-        "88" {
-            $platform = "Blackberry Playbook"
+        '88' {
+            $platform = 'Blackberry Playbook'
         }
-        "257" {
-            $platform = "HTML5"
+        '257' {
+            $platform = 'HTML5'
         }
         default {
-            $platform = "N/A"
-        }    # Unknown platform
-    }
-    $hostText = @"
-Citrix Workspace App version check:
-Platform`t : $platform
-Client Version`t : $($result.Version)
-Evaluated`t : $($result.Evaluated)
-Is LTSR`t`t : $($result.IsLTSR)
-Is CVE Impacted`t : $($result.IsisCveImpacted)
-Is EOL`t`t : $($result.IsEOL)
-CVE's impacted`t : $($result.CVEs -join ', ')
-"@
-
-    Write-Information -MessageData $hostText -InformationAction Continue
-    try { Write-EventLog -LogName Application -Source "Application" -EntryType Information -EventId 219 -Message $hostText -ErrorAction SilentlyContinue } catch { <# Do Nothing #> }
-    # 219 = 67+87+65 => C (67) W (87) A (65) => https://cryptii.com/pipes/text-decimal
-    if ($result.Evaluated -eq $true -and $result.IsEOL -eq $true) {
-        $message = ("$MessageTextEOL").Replace("##platform##", $platform)
-        $showMessage = $true
-    }
-
-    if ($result.Evaluated -eq $true -and $result.IsisCveImpacted -eq $true) {
-        $message = ("$MessageTextCVE").Replace("##platform##", $platform)
-        $showMessage = $true
-    }
-
-    if ($showMessage -eq $true) {
-        Write-Verbose "Message: $message"
-        if ((Show-MessageToUser -Message $message -Title $MessageTitle) -and ($LogoffOnEOL -eq $true -or $LogoffOnCVE -eq $true)) {
-            Write-Verbose "Logoff is enabled, logging off the user"
-            Invoke-LogoffSession
+            $platform = 'N/A'
         }
-    } else {
-        Write-Verbose "A supported version ($($result.Version)) was detected for $($platform)"
     }
+
+    Invoke-CWAResultAction -Result $result -Platform $platform
 } elseif ([bool]$Test -eq $true) {
-    Write-Verbose "Running in test mode"
-    $platform = "!!TEST - v$version - EOL!!"
-    $message = ("$MessageTextEOL").Replace("##platform##", $platform)
-    Write-Verbose "Title: $MessageTitle"
-    Write-Verbose "Message: $message"
-    if ((Show-MessageToUser -Message $message -Title $MessageTitle) -and ($LogoffOnEOL -eq $true -or $LogoffOnCVE -eq $true)) {
-        Write-Verbose "Logoff is enabled, logging off the user"
-        Show-MessageToUser -Message "Your session would have been logged off now`r`n$platform" -Title "Session Logoff [Test]"
+    Write-Verbose -Message 'Running in test mode'
+    $platform = "!!TEST - v$($version) - EOL!!"
+    $message = ("$($MessageTextEOL)").Replace('##platform##', $platform)
+    Write-Verbose -Message "Title: $($MessageTitle)"
+    Write-Verbose -Message "Message: $($message)"
+    if ((Show-MessageToUser -Message $message -Title $MessageTitle) -and [bool]$LogoffOnEOL) {
+        Show-MessageToUser -Message "Your session would have been logged off now`r`n$($platform)" -Title 'Session Logoff [Test]'
     }
-    $platform = "!!TEST - v$version - CVE!!"
-    $message = ("$MessageTextCVE").Replace("##platform##", $platform)
-    Write-Verbose "Title: $MessageTitle"
-    Write-Verbose "Message: $message"
-    if ((Show-MessageToUser -Message $message -Title $MessageTitle) -and ($LogoffOnEOL -eq $true -or $LogoffOnCVE -eq $true)) {
-        Write-Verbose "Logoff is enabled, logging off the user"
-        Show-MessageToUser -Message "Your session would have been logged off now`r`n$platform" -Title "Session Logoff [Test]"
+    $platform = "!!TEST - v$($version) - CVE!!"
+    $message = ("$($MessageTextCVE)").Replace('##platform##', $platform)
+    Write-Verbose -Message "Title: $($MessageTitle)"
+    Write-Verbose -Message "Message: $($message)"
+    if ((Show-MessageToUser -Message $message -Title $MessageTitle) -and [bool]$LogoffOnCVE) {
+        Show-MessageToUser -Message "Your session would have been logged off now`r`n$($platform)" -Title 'Session Logoff [Test]'
     }
 } else {
-    Write-Warning "The script is not running in a Citrix environment"
+    Write-Warning -Message 'The script is not running in a Citrix environment'
 }
 
 #region Logging
@@ -1036,222 +1167,13 @@ if ([bool]$EnableLogging -eq $true) {
     try {
         Stop-Transcript
     } catch {
-        Write-Warning "Failed to stop logging, $($_.Exception.Message)"
+        Write-Warning -Message "Failed to stop logging, $($_.Exception.Message)"
     }
 }
 
 #end region Logging
 
 if ($Test -eq $true) {
-    Write-Host "Press any key to continue..."
-    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+    Write-Host 'Press any key to continue...'
+    $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
 }
-
-# SIG # Begin signature block
-# MIImdwYJKoZIhvcNAQcCoIImaDCCJmQCAQExDzANBglghkgBZQMEAgEFADB5Bgor
-# BgEEAYI3AgEEoGswaTA0BgorBgEEAYI3AgEeMCYCAwEAAAQQH8w7YFlLCE63JNLG
-# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCCSbbXsRcZw8XMW
-# oTbGUw7GgaK0swA/i9PXadK10X0VU6CCIAowggYUMIID/KADAgECAhB6I67aU2mW
-# D5HIPlz0x+M/MA0GCSqGSIb3DQEBDAUAMFcxCzAJBgNVBAYTAkdCMRgwFgYDVQQK
-# Ew9TZWN0aWdvIExpbWl0ZWQxLjAsBgNVBAMTJVNlY3RpZ28gUHVibGljIFRpbWUg
-# U3RhbXBpbmcgUm9vdCBSNDYwHhcNMjEwMzIyMDAwMDAwWhcNMzYwMzIxMjM1OTU5
-# WjBVMQswCQYDVQQGEwJHQjEYMBYGA1UEChMPU2VjdGlnbyBMaW1pdGVkMSwwKgYD
-# VQQDEyNTZWN0aWdvIFB1YmxpYyBUaW1lIFN0YW1waW5nIENBIFIzNjCCAaIwDQYJ
-# KoZIhvcNAQEBBQADggGPADCCAYoCggGBAM2Y2ENBq26CK+z2M34mNOSJjNPvIhKA
-# VD7vJq+MDoGD46IiM+b83+3ecLvBhStSVjeYXIjfa3ajoW3cS3ElcJzkyZlBnwDE
-# JuHlzpbN4kMH2qRBVrjrGJgSlzzUqcGQBaCxpectRGhhnOSwcjPMI3G0hedv2eNm
-# GiUbD12OeORN0ADzdpsQ4dDi6M4YhoGE9cbY11XxM2AVZn0GiOUC9+XE0wI7CQKf
-# OUfigLDn7i/WeyxZ43XLj5GVo7LDBExSLnh+va8WxTlA+uBvq1KO8RSHUQLgzb1g
-# bL9Ihgzxmkdp2ZWNuLc+XyEmJNbD2OIIq/fWlwBp6KNL19zpHsODLIsgZ+WZ1AzC
-# s1HEK6VWrxmnKyJJg2Lv23DlEdZlQSGdF+z+Gyn9/CRezKe7WNyxRf4e4bwUtrYE
-# 2F5Q+05yDD68clwnweckKtxRaF0VzN/w76kOLIaFVhf5sMM/caEZLtOYqYadtn03
-# 4ykSFaZuIBU9uCSrKRKTPJhWvXk4CllgrwIDAQABo4IBXDCCAVgwHwYDVR0jBBgw
-# FoAU9ndq3T/9ARP/FqFsggIv0Ao9FCUwHQYDVR0OBBYEFF9Y7UwxeqJhQo1SgLqz
-# YZcZojKbMA4GA1UdDwEB/wQEAwIBhjASBgNVHRMBAf8ECDAGAQH/AgEAMBMGA1Ud
-# JQQMMAoGCCsGAQUFBwMIMBEGA1UdIAQKMAgwBgYEVR0gADBMBgNVHR8ERTBDMEGg
-# P6A9hjtodHRwOi8vY3JsLnNlY3RpZ28uY29tL1NlY3RpZ29QdWJsaWNUaW1lU3Rh
-# bXBpbmdSb290UjQ2LmNybDB8BggrBgEFBQcBAQRwMG4wRwYIKwYBBQUHMAKGO2h0
-# dHA6Ly9jcnQuc2VjdGlnby5jb20vU2VjdGlnb1B1YmxpY1RpbWVTdGFtcGluZ1Jv
-# b3RSNDYucDdjMCMGCCsGAQUFBzABhhdodHRwOi8vb2NzcC5zZWN0aWdvLmNvbTAN
-# BgkqhkiG9w0BAQwFAAOCAgEAEtd7IK0ONVgMnoEdJVj9TC1ndK/HYiYh9lVUacah
-# RoZ2W2hfiEOyQExnHk1jkvpIJzAMxmEc6ZvIyHI5UkPCbXKspioYMdbOnBWQUn73
-# 3qMooBfIghpR/klUqNxx6/fDXqY0hSU1OSkkSivt51UlmJElUICZYBodzD3M/SFj
-# eCP59anwxs6hwj1mfvzG+b1coYGnqsSz2wSKr+nDO+Db8qNcTbJZRAiSazr7KyUJ
-# Go1c+MScGfG5QHV+bps8BX5Oyv9Ct36Y4Il6ajTqV2ifikkVtB3RNBUgwu/mSiSU
-# ice/Jp/q8BMk/gN8+0rNIE+QqU63JoVMCMPY2752LmESsRVVoypJVt8/N3qQ1c6F
-# ibbcRabo3azZkcIdWGVSAdoLgAIxEKBeNh9AQO1gQrnh1TA8ldXuJzPSuALOz1Uj
-# b0PCyNVkWk7hkhVHfcvBfI8NtgWQupiaAeNHe0pWSGH2opXZYKYG4Lbukg7HpNi/
-# KqJhue2Keak6qH9A8CeEOB7Eob0Zf+fU+CCQaL0cJqlmnx9HCDxF+3BLbUufrV64
-# EbTI40zqegPZdA+sXCmbcZy6okx/SjwsusWRItFA3DE8MORZeFb6BmzBtqKJ7l93
-# 9bbKBy2jvxcJI98Va95Q5JnlKor3m0E7xpMeYRriWklUPsetMSf2NvUQa/E5vVye
-# fQIwggZFMIIELaADAgECAhAIMk+dt9qRb2Pk8qM8Xl1RMA0GCSqGSIb3DQEBCwUA
-# MFYxCzAJBgNVBAYTAlBMMSEwHwYDVQQKExhBc3NlY28gRGF0YSBTeXN0ZW1zIFMu
-# QS4xJDAiBgNVBAMTG0NlcnR1bSBDb2RlIFNpZ25pbmcgMjAyMSBDQTAeFw0yNDA0
-# MDQxNDA0MjRaFw0yNzA0MDQxNDA0MjNaMGsxCzAJBgNVBAYTAk5MMRIwEAYDVQQH
-# DAlTY2hpam5kZWwxIzAhBgNVBAoMGkpvaG4gQmlsbGVrZW5zIENvbnN1bHRhbmN5
-# MSMwIQYDVQQDDBpKb2huIEJpbGxla2VucyBDb25zdWx0YW5jeTCCAaIwDQYJKoZI
-# hvcNAQEBBQADggGPADCCAYoCggGBAMslntDbSQwHZXwFhmibivbnd0Qfn6sqe/6f
-# os3pKzKxEsR907RkDMet2x6RRg3eJkiIr3TFPwqBooyXXgK3zxxpyhGOcuIqyM9J
-# 28DVf4kUyZHsjGO/8HFjrr3K1hABNUszP0o7H3o6J31eqV1UmCXYhQlNoW9FOmRC
-# 1amlquBmh7w4EKYEytqdmdOBavAD5Xq4vLPxNP6kyA+B2YTtk/xM27TghtbwFGKn
-# u9Vwnm7dFcpLxans4ONt2OxDQOMA5NwgcUv/YTpjhq9qoz6ivG55NRJGNvUXsM3w
-# 2o7dR6Xh4MuEGrTSrOWGg2A5EcLH1XqQtkF5cZnAPM8W/9HUp8ggornWnFVQ9/6M
-# ga+ermy5wy5XrmQpN+x3u6tit7xlHk1Hc+4XY4a4ie3BPXG2PhJhmZAn4ebNSBwN
-# Hh8z7WTT9X9OFERepGSytZVeEP7hgyptSLcuhpwWeR4QdBb7dV++4p3PsAUQVHFp
-# wkSbrRTv4EiJ0Lcz9P1HPGFoHiFAQQIDAQABo4IBeDCCAXQwDAYDVR0TAQH/BAIw
-# ADA9BgNVHR8ENjA0MDKgMKAuhixodHRwOi8vY2NzY2EyMDIxLmNybC5jZXJ0dW0u
-# cGwvY2NzY2EyMDIxLmNybDBzBggrBgEFBQcBAQRnMGUwLAYIKwYBBQUHMAGGIGh0
-# dHA6Ly9jY3NjYTIwMjEub2NzcC1jZXJ0dW0uY29tMDUGCCsGAQUFBzAChilodHRw
-# Oi8vcmVwb3NpdG9yeS5jZXJ0dW0ucGwvY2NzY2EyMDIxLmNlcjAfBgNVHSMEGDAW
-# gBTddF1MANt7n6B0yrFu9zzAMsBwzTAdBgNVHQ4EFgQUO6KtBpOBgmrlANVAnyiQ
-# C6W6lJwwSwYDVR0gBEQwQjAIBgZngQwBBAEwNgYLKoRoAYb2dwIFAQQwJzAlBggr
-# BgEFBQcCARYZaHR0cHM6Ly93d3cuY2VydHVtLnBsL0NQUzATBgNVHSUEDDAKBggr
-# BgEFBQcDAzAOBgNVHQ8BAf8EBAMCB4AwDQYJKoZIhvcNAQELBQADggIBAEQsN8wg
-# PMdWVkwHPPTN+jKpdns5AKVFjcn00psf2NGVVgWWNQBIQc9lEuTBWb54IK6Ga3hx
-# QRZfnPNo5HGl73YLmFgdFQrFzZ1lnaMdIcyh8LTWv6+XNWfoyCM9wCp4zMIDPOs8
-# LKSMQqA/wRgqiACWnOS4a6fyd5GUIAm4CuaptpFYr90l4Dn/wAdXOdY32UhgzmSu
-# xpUbhD8gVJUaBNVmQaRqeU8y49MxiVrUKJXde1BCrtR9awXbqembc7Nqvmi60tYK
-# lD27hlpKtj6eGPjkht0hHEsgzU0Fxw7ZJghYG2wXfpF2ziN893ak9Mi/1dmCNmor
-# GOnybKYfT6ff6YTCDDNkod4egcMZdOSv+/Qv+HAeIgEvrxE9QsGlzTwbRtbm6gwY
-# YcVBs/SsVUdBn/TSB35MMxRhHE5iC3aUTkDbceo/XP3uFhVL4g2JZHpFfCSu2TQr
-# rzRn2sn07jfMvzeHArCOJgBW1gPqR3WrJ4hUxL06Rbg1gs9tU5HGGz9KNQMfQFQ7
-# 0Wz7UIhezGcFcRfkIfSkMmQYYpsc7rfzj+z0ThfDVzzJr2dMOFsMlfj1T6l22GBq
-# 9XQx0A4lcc5Fl9pRxbOuHHWFqIBD/BCEhwniOCySzqENd2N+oz8znKooSISStnkN
-# aYXt6xblJF2dx9Dn89FK7d1IquNxOwt0tI5dMIIGYjCCBMqgAwIBAgIRAKQpO24e
-# 3denNAiHrXpOtyQwDQYJKoZIhvcNAQEMBQAwVTELMAkGA1UEBhMCR0IxGDAWBgNV
-# BAoTD1NlY3RpZ28gTGltaXRlZDEsMCoGA1UEAxMjU2VjdGlnbyBQdWJsaWMgVGlt
-# ZSBTdGFtcGluZyBDQSBSMzYwHhcNMjUwMzI3MDAwMDAwWhcNMzYwMzIxMjM1OTU5
-# WjByMQswCQYDVQQGEwJHQjEXMBUGA1UECBMOV2VzdCBZb3Jrc2hpcmUxGDAWBgNV
-# BAoTD1NlY3RpZ28gTGltaXRlZDEwMC4GA1UEAxMnU2VjdGlnbyBQdWJsaWMgVGlt
-# ZSBTdGFtcGluZyBTaWduZXIgUjM2MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIIC
-# CgKCAgEA04SV9G6kU3jyPRBLeBIHPNyUgVNnYayfsGOyYEXrn3+SkDYTLs1crcw/
-# ol2swE1TzB2aR/5JIjKNf75QBha2Ddj+4NEPKDxHEd4dEn7RTWMcTIfm492TW22I
-# 8LfH+A7Ehz0/safc6BbsNBzjHTt7FngNfhfJoYOrkugSaT8F0IzUh6VUwoHdYDpi
-# ln9dh0n0m545d5A5tJD92iFAIbKHQWGbCQNYplqpAFasHBn77OqW37P9BhOASdmj
-# p3IijYiFdcA0WQIe60vzvrk0HG+iVcwVZjz+t5OcXGTcxqOAzk1frDNZ1aw8nFhG
-# EvG0ktJQknnJZE3D40GofV7O8WzgaAnZmoUn4PCpvH36vD4XaAF2CjiPsJWiY/j2
-# xLsJuqx3JtuI4akH0MmGzlBUylhXvdNVXcjAuIEcEQKtOBR9lU4wXQpISrbOT8ux
-# +96GzBq8TdbhoFcmYaOBZKlwPP7pOp5Mzx/UMhyBA93PQhiCdPfIVOCINsUY4U23
-# p4KJ3F1HqP3H6Slw3lHACnLilGETXRg5X/Fp8G8qlG5Y+M49ZEGUp2bneRLZoyHT
-# yynHvFISpefhBCV0KdRZHPcuSL5OAGWnBjAlRtHvsMBrI3AAA0Tu1oGvPa/4yeei
-# Ayu+9y3SLC98gDVbySnXnkujjhIh+oaatsk/oyf5R2vcxHahajMCAwEAAaOCAY4w
-# ggGKMB8GA1UdIwQYMBaAFF9Y7UwxeqJhQo1SgLqzYZcZojKbMB0GA1UdDgQWBBSI
-# YYyhKjdkgShgoZsx0Iz9LALOTzAOBgNVHQ8BAf8EBAMCBsAwDAYDVR0TAQH/BAIw
-# ADAWBgNVHSUBAf8EDDAKBggrBgEFBQcDCDBKBgNVHSAEQzBBMDUGDCsGAQQBsjEB
-# AgEDCDAlMCMGCCsGAQUFBwIBFhdodHRwczovL3NlY3RpZ28uY29tL0NQUzAIBgZn
-# gQwBBAIwSgYDVR0fBEMwQTA/oD2gO4Y5aHR0cDovL2NybC5zZWN0aWdvLmNvbS9T
-# ZWN0aWdvUHVibGljVGltZVN0YW1waW5nQ0FSMzYuY3JsMHoGCCsGAQUFBwEBBG4w
-# bDBFBggrBgEFBQcwAoY5aHR0cDovL2NydC5zZWN0aWdvLmNvbS9TZWN0aWdvUHVi
-# bGljVGltZVN0YW1waW5nQ0FSMzYuY3J0MCMGCCsGAQUFBzABhhdodHRwOi8vb2Nz
-# cC5zZWN0aWdvLmNvbTANBgkqhkiG9w0BAQwFAAOCAYEAAoE+pIZyUSH5ZakuPVKK
-# 4eWbzEsTRJOEjbIu6r7vmzXXLpJx4FyGmcqnFZoa1dzx3JrUCrdG5b//LfAxOGy9
-# Ph9JtrYChJaVHrusDh9NgYwiGDOhyyJ2zRy3+kdqhwtUlLCdNjFjakTSE+hkC9F5
-# ty1uxOoQ2ZkfI5WM4WXA3ZHcNHB4V42zi7Jk3ktEnkSdViVxM6rduXW0jmmiu71Z
-# pBFZDh7Kdens+PQXPgMqvzodgQJEkxaION5XRCoBxAwWwiMm2thPDuZTzWp/gUFz
-# i7izCmEt4pE3Kf0MOt3ccgwn4Kl2FIcQaV55nkjv1gODcHcD9+ZVjYZoyKTVWb4V
-# qMQy/j8Q3aaYd/jOQ66Fhk3NWbg2tYl5jhQCuIsE55Vg4N0DUbEWvXJxtxQQaVR5
-# xzhEI+BjJKzh3TQ026JxHhr2fuJ0mV68AluFr9qshgwS5SpN5FFtaSEnAwqZv3IS
-# +mlG50rK7W3qXbWwi4hmpylUfygtYLEdLQukNEX1jiOKMIIGgjCCBGqgAwIBAgIQ
-# NsKwvXwbOuejs902y8l1aDANBgkqhkiG9w0BAQwFADCBiDELMAkGA1UEBhMCVVMx
-# EzARBgNVBAgTCk5ldyBKZXJzZXkxFDASBgNVBAcTC0plcnNleSBDaXR5MR4wHAYD
-# VQQKExVUaGUgVVNFUlRSVVNUIE5ldHdvcmsxLjAsBgNVBAMTJVVTRVJUcnVzdCBS
-# U0EgQ2VydGlmaWNhdGlvbiBBdXRob3JpdHkwHhcNMjEwMzIyMDAwMDAwWhcNMzgw
-# MTE4MjM1OTU5WjBXMQswCQYDVQQGEwJHQjEYMBYGA1UEChMPU2VjdGlnbyBMaW1p
-# dGVkMS4wLAYDVQQDEyVTZWN0aWdvIFB1YmxpYyBUaW1lIFN0YW1waW5nIFJvb3Qg
-# UjQ2MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAiJ3YuUVnnR3d6Lkm
-# gZpUVMB8SQWbzFoVD9mUEES0QUCBdxSZqdTkdizICFNeINCSJS+lV1ipnW5ihkQy
-# C0cRLWXUJzodqpnMRs46npiJPHrfLBOifjfhpdXJ2aHHsPHggGsCi7uE0awqKggE
-# /LkYw3sqaBia67h/3awoqNvGqiFRJ+OTWYmUCO2GAXsePHi+/JUNAax3kpqstbl3
-# vcTdOGhtKShvZIvjwulRH87rbukNyHGWX5tNK/WABKf+Gnoi4cmisS7oSimgHUI0
-# Wn/4elNd40BFdSZ1EwpuddZ+Wr7+Dfo0lcHflm/FDDrOJ3rWqauUP8hsokDoI7D/
-# yUVI9DAE/WK3Jl3C4LKwIpn1mNzMyptRwsXKrop06m7NUNHdlTDEMovXAIDGAvYy
-# nPt5lutv8lZeI5w3MOlCybAZDpK3Dy1MKo+6aEtE9vtiTMzz/o2dYfdP0KWZwZIX
-# bYsTIlg1YIetCpi5s14qiXOpRsKqFKqav9R1R5vj3NgevsAsvxsAnI8Oa5s2oy25
-# qhsoBIGo/zi6GpxFj+mOdh35Xn91y72J4RGOJEoqzEIbW3q0b2iPuWLA911cRxgY
-# 5SJYubvjay3nSMbBPPFsyl6mY4/WYucmyS9lo3l7jk27MAe145GWxK4O3m3gEFEI
-# kv7kRmefDR7Oe2T1HxAnICQvr9sCAwEAAaOCARYwggESMB8GA1UdIwQYMBaAFFN5
-# v1qqK0rPVIDh2JvAnfKyA2bLMB0GA1UdDgQWBBT2d2rdP/0BE/8WoWyCAi/QCj0U
-# JTAOBgNVHQ8BAf8EBAMCAYYwDwYDVR0TAQH/BAUwAwEB/zATBgNVHSUEDDAKBggr
-# BgEFBQcDCDARBgNVHSAECjAIMAYGBFUdIAAwUAYDVR0fBEkwRzBFoEOgQYY/aHR0
-# cDovL2NybC51c2VydHJ1c3QuY29tL1VTRVJUcnVzdFJTQUNlcnRpZmljYXRpb25B
-# dXRob3JpdHkuY3JsMDUGCCsGAQUFBwEBBCkwJzAlBggrBgEFBQcwAYYZaHR0cDov
-# L29jc3AudXNlcnRydXN0LmNvbTANBgkqhkiG9w0BAQwFAAOCAgEADr5lQe1oRLjl
-# ocXUEYfktzsljOt+2sgXke3Y8UPEooU5y39rAARaAdAxUeiX1ktLJ3+lgxtoLQhn
-# 5cFb3GF2SSZRX8ptQ6IvuD3wz/LNHKpQ5nX8hjsDLRhsyeIiJsms9yAWnvdYOdEM
-# q1W61KE9JlBkB20XBee6JaXx4UBErc+YuoSb1SxVf7nkNtUjPfcxuFtrQdRMRi/f
-# InV/AobE8Gw/8yBMQKKaHt5eia8ybT8Y/Ffa6HAJyz9gvEOcF1VWXG8OMeM7Vy7B
-# s6mSIkYeYtddU1ux1dQLbEGur18ut97wgGwDiGinCwKPyFO7ApcmVJOtlw9FVJxw
-# /mL1TbyBns4zOgkaXFnnfzg4qbSvnrwyj1NiurMp4pmAWjR+Pb/SIduPnmFzbSN/
-# G8reZCL4fvGlvPFk4Uab/JVCSmj59+/mB2Gn6G/UYOy8k60mKcmaAZsEVkhOFuoj
-# 4we8CYyaR9vd9PGZKSinaZIkvVjbH/3nlLb0a7SBIkiRzfPfS9T+JesylbHa1LtR
-# V9U/7m0q7Ma2CQ/t392ioOssXW7oKLdOmMBl14suVFBmbzrt5V5cQPnwtd3UOTpS
-# 9oCG+ZZheiIvPgkDmA8FzPsnfXW5qHELB43ET7HHFHeRPRYrMBKjkb8/IN7Po0d0
-# hQoF4TeMM+zYAJzoKQnVKOLg8pZVPT8wgga5MIIEoaADAgECAhEAmaOACiZVO2Wr
-# 3G6EprPqOTANBgkqhkiG9w0BAQwFADCBgDELMAkGA1UEBhMCUEwxIjAgBgNVBAoT
-# GVVuaXpldG8gVGVjaG5vbG9naWVzIFMuQS4xJzAlBgNVBAsTHkNlcnR1bSBDZXJ0
-# aWZpY2F0aW9uIEF1dGhvcml0eTEkMCIGA1UEAxMbQ2VydHVtIFRydXN0ZWQgTmV0
-# d29yayBDQSAyMB4XDTIxMDUxOTA1MzIxOFoXDTM2MDUxODA1MzIxOFowVjELMAkG
-# A1UEBhMCUEwxITAfBgNVBAoTGEFzc2VjbyBEYXRhIFN5c3RlbXMgUy5BLjEkMCIG
-# A1UEAxMbQ2VydHVtIENvZGUgU2lnbmluZyAyMDIxIENBMIICIjANBgkqhkiG9w0B
-# AQEFAAOCAg8AMIICCgKCAgEAnSPPBDAjO8FGLOczcz5jXXp1ur5cTbq96y34vuTm
-# flN4mSAfgLKTvggv24/rWiVGzGxT9YEASVMw1Aj8ewTS4IndU8s7VS5+djSoMcbv
-# IKck6+hI1shsylP4JyLvmxwLHtSworV9wmjhNd627h27a8RdrT1PH9ud0IF+njvM
-# k2xqbNTIPsnWtw3E7DmDoUmDQiYi/ucJ42fcHqBkbbxYDB7SYOouu9Tj1yHIohzu
-# C8KNqfcYf7Z4/iZgkBJ+UFNDcc6zokZ2uJIxWgPWXMEmhu1gMXgv8aGUsRdaCtVD
-# 2bSlbfsq7BiqljjaCun+RJgTgFRCtsuAEw0pG9+FA+yQN9n/kZtMLK+Wo837Q4QO
-# ZgYqVWQ4x6cM7/G0yswg1ElLlJj6NYKLw9EcBXE7TF3HybZtYvj9lDV2nT8mFSkc
-# SkAExzd4prHwYjUXTeZIlVXqj+eaYqoMTpMrfh5MCAOIG5knN4Q/JHuurfTI5XDY
-# O962WZayx7ACFf5ydJpoEowSP07YaBiQ8nXpDkNrUA9g7qf/rCkKbWpQ5boufUnq
-# 1UiYPIAHlezf4muJqxqIns/kqld6JVX8cixbd6PzkDpwZo4SlADaCi2JSplKShBS
-# ND36E/ENVv8urPS0yOnpG4tIoBGxVCARPCg1BnyMJ4rBJAcOSnAWd18Jx5n858JS
-# qPECAwEAAaOCAVUwggFRMA8GA1UdEwEB/wQFMAMBAf8wHQYDVR0OBBYEFN10XUwA
-# 23ufoHTKsW73PMAywHDNMB8GA1UdIwQYMBaAFLahVDkCw6A/joq8+tT4HKbROg79
-# MA4GA1UdDwEB/wQEAwIBBjATBgNVHSUEDDAKBggrBgEFBQcDAzAwBgNVHR8EKTAn
-# MCWgI6Ahhh9odHRwOi8vY3JsLmNlcnR1bS5wbC9jdG5jYTIuY3JsMGwGCCsGAQUF
-# BwEBBGAwXjAoBggrBgEFBQcwAYYcaHR0cDovL3N1YmNhLm9jc3AtY2VydHVtLmNv
-# bTAyBggrBgEFBQcwAoYmaHR0cDovL3JlcG9zaXRvcnkuY2VydHVtLnBsL2N0bmNh
-# Mi5jZXIwOQYDVR0gBDIwMDAuBgRVHSAAMCYwJAYIKwYBBQUHAgEWGGh0dHA6Ly93
-# d3cuY2VydHVtLnBsL0NQUzANBgkqhkiG9w0BAQwFAAOCAgEAdYhYD+WPUCiaU58Q
-# 7EP89DttyZqGYn2XRDhJkL6P+/T0IPZyxfxiXumYlARMgwRzLRUStJl490L94C9L
-# GF3vjzzH8Jq3iR74BRlkO18J3zIdmCKQa5LyZ48IfICJTZVJeChDUyuQy6rGDxLU
-# UAsO0eqeLNhLVsgw6/zOfImNlARKn1FP7o0fTbj8ipNGxHBIutiRsWrhWM2f8pXd
-# d3x2mbJCKKtl2s42g9KUJHEIiLni9ByoqIUul4GblLQigO0ugh7bWRLDm0CdY9rN
-# LqyA3ahe8WlxVWkxyrQLjH8ItI17RdySaYayX3PhRSC4Am1/7mATwZWwSD+B7eMc
-# ZNhpn8zJ+6MTyE6YoEBSRVrs0zFFIHUR08Wk0ikSf+lIe5Iv6RY3/bFAEloMU+vU
-# BfSouCReZwSLo8WdrDlPXtR0gicDnytO7eZ5827NS2x7gCBibESYkOh1/w1tVxTp
-# V2Na3PR7nxYVlPu1JPoRZCbH86gc96UTvuWiOruWmyOEMLOGGniR+x+zPF/2DaGg
-# K2W1eEJfo2qyrBNPvF7wuAyQfiFXLwvWHamoYtPZo0LHuH8X3n9C+xN4YaNjt2yw
-# zOr+tKyEVAotnyU9vyEVOaIYMk3IeBrmFnn0gbKeTTyYeEEUz/Qwt4HOUBCrW602
-# NCmvO1nm+/80nLy5r0AZvCQxaQ4xggXDMIIFvwIBATBqMFYxCzAJBgNVBAYTAlBM
-# MSEwHwYDVQQKExhBc3NlY28gRGF0YSBTeXN0ZW1zIFMuQS4xJDAiBgNVBAMTG0Nl
-# cnR1bSBDb2RlIFNpZ25pbmcgMjAyMSBDQQIQCDJPnbfakW9j5PKjPF5dUTANBglg
-# hkgBZQMEAgEFAKCBhDAYBgorBgEEAYI3AgEMMQowCKACgAChAoAAMBkGCSqGSIb3
-# DQEJAzEMBgorBgEEAYI3AgEEMBwGCisGAQQBgjcCAQsxDjAMBgorBgEEAYI3AgEV
-# MC8GCSqGSIb3DQEJBDEiBCDCA4+LhY6mLNaN0x/9r5NCvRKkf+zlPXDWGI4Fnp9e
-# tjANBgkqhkiG9w0BAQEFAASCAYBxfmwY9CmbgVajDtWmuQ1b0rM3GGlzMRA2o4eV
-# ADbeTY4PkJTfiZoQCT70tb19BIpo1DipbLzEagdPzcT+E7MFa7+BPL/Vg3erRDtB
-# P8+tDagJSVSnwXf5Vo9L1mEqYQ6MZytTl6Peiq+24uFrHTpZdjPi+WqbBqgml5QQ
-# sBzUfF4PKqBvJfpwQ2ubIEqNgpQLr4uBNxQCZqpJPdYH4+bIdX+8w7Kb6+rZKaon
-# M/5PXllRjC2ay5P4bnSQv3zU/uZGk8FOmexPpYpufXcXGTCD9YO1RfcqfzHuYOhn
-# XYTpEAzG6t4xd1P4bfyBDNS7RWq842cov+EtmVF4Ay/JE2okMSXNjmtQGK2xr2no
-# HuhCq6Qlz+TV/mJhPu6QMdTOZpnWqpOTga641NjT4x1yprsLho5Il+fXxs7nh+Na
-# QARxJZpU9EbzjNORO1xaCJRc7U14Y/H4JynMvNGcyR11OrZ4yYVr0ZOhZIUWOzaQ
-# gTuDDiWSA/BGw7Dj+94TqmJ9QIWhggMjMIIDHwYJKoZIhvcNAQkGMYIDEDCCAwwC
-# AQEwajBVMQswCQYDVQQGEwJHQjEYMBYGA1UEChMPU2VjdGlnbyBMaW1pdGVkMSww
-# KgYDVQQDEyNTZWN0aWdvIFB1YmxpYyBUaW1lIFN0YW1waW5nIENBIFIzNgIRAKQp
-# O24e3denNAiHrXpOtyQwDQYJYIZIAWUDBAICBQCgeTAYBgkqhkiG9w0BCQMxCwYJ
-# KoZIhvcNAQcBMBwGCSqGSIb3DQEJBTEPFw0yNjA2MDcyMDA1MzRaMD8GCSqGSIb3
-# DQEJBDEyBDBiTjQge3XpHidHrLdSqvXtGAL3pEl3jSfOqKi/sS0d0pBctSPMu6RL
-# Qx8OKAk3i8cwDQYJKoZIhvcNAQEBBQAEggIACiLj4mi+FMqo4/Dql/pvTswmmrcQ
-# +p7uWt4nIobPFY0vbG6RdcKHn0h7is5xi2px7YUcoIW4k+sEAUyhSNuWc8MTvHK5
-# tmeGN0cf+HawVQGG2IrQ7Yxa7At6+jKLMTslRPy1+9gSOm0VTkBa6F2GkhgMTVTw
-# +Wx/yXHwLQd9ldxnQDnW+sVdDSoXGjBuM/ADXQMpb9KGFi/DHIoL+MYzUmkYNhgQ
-# yVOkz/z3SZIDoYl0VqCmRNowFgr7G9LwAKoR3uVjWhIod3t3v9UZXZzgw655vtYy
-# z85X0fOdaBM/K2xY0oVBwPk02GM+bUz/kG+d2NE2Fjx11psaML5FmtFKoo2JtRqE
-# crlVRO8q/gd9kX/8eMQwCpNZBDBpnVB0BYJBHYLncqJuo+plroVnW59SI8DVCSVr
-# pfu6ftSK1OlBd9tuN1ol3G2uSL3Y5+WNdCfHIbMhpRgn4fPVIq+NxdRJPGYHm4NA
-# 3SwengwbxzFWP8FJmkGyUm3pIE8ZBEJD1hV9CueGlsFn+zO7b67zETEbsgd0BRL1
-# yWyK2w6KfXkkkUYb5R0dvkTqo8bKr3okPMG6FzF/JCuo/h3STfAVYIrsDVbTu8Rj
-# iJvc78aazjmWQ1Wng/conDLHds4aNAlMMptHjdvM0GK7sXdl8FcHwE5fvDNssYxw
-# /2CeoPna38p7wHs=
-# SIG # End signature block
